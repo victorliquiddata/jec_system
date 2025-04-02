@@ -1,10 +1,12 @@
+"mod docstring to be impl"
+
 import os
 import logging
-from dotenv import load_dotenv
-import psycopg2
-from psycopg2 import pool
-from psycopg2 import OperationalError, Error  # Correct import location
 from typing import Optional, List, Dict, Any
+from psycopg2 import pool
+from psycopg2 import OperationalError, Error
+from dotenv import load_dotenv
+
 
 # Initialize environment variables
 load_dotenv()
@@ -23,9 +25,13 @@ class DatabaseManager:
         """Create connection pool using environment variables"""
         if not self._connection_pool:
             try:
+                # Convert string env vars to int for connection settings
+                min_connections = int(os.getenv("DB_MIN_CONNECTIONS", "1"))
+                max_connections = int(os.getenv("DB_MAX_CONNECTIONS", "5"))
+
                 self._connection_pool = pool.SimpleConnectionPool(
-                    minconn=int(os.getenv("DB_MIN_CONNECTIONS", 1)),
-                    maxconn=int(os.getenv("DB_MAX_CONNECTIONS", 5)),
+                    minconn=min_connections,
+                    maxconn=max_connections,
                     host=os.getenv("DB_HOST"),
                     port=os.getenv("DB_PORT"),
                     user=os.getenv("DB_USUARIO"),
@@ -34,8 +40,8 @@ class DatabaseManager:
                     options=f"-c search_path={os.getenv('DB_SCHEMA', 'jec')}",
                 )
                 logging.info("Database connection pool initialized successfully")
-            except Exception as e:
-                logging.critical(f"Database connection failed: {str(e)}")
+            except Exception as exc:
+                logging.critical("Database connection failed: %s", str(exc))
                 raise
 
     def _get_connection(self):
@@ -43,10 +49,10 @@ class DatabaseManager:
         for attempt in range(self._reconnect_attempts):
             try:
                 return self._connection_pool.getconn()
-            except (OperationalError, pool.PoolError) as e:  # Now correctly referenced
+            except (OperationalError, pool.PoolError):  # Removed unused exc variable
                 if attempt < self._reconnect_attempts - 1:
                     logging.warning(
-                        f"Connection attempt {attempt + 1} failed. Retrying..."
+                        "Connection attempt %d failed. Retrying...", attempt + 1
                     )
                     continue
                 logging.error("Maximum connection attempts reached")
@@ -69,8 +75,8 @@ class DatabaseManager:
                 conn.commit()
                 return None
 
-        except Error as e:  # Now correctly referenced
-            logging.error(f"Database error: {str(e)}")
+        except Error as exc:
+            logging.error("Database error: %s", str(exc))
             if conn:
                 conn.rollback()
             raise
