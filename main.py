@@ -6,16 +6,20 @@ from rich.table import Table
 from rich import box
 from auth import auth_manager
 from database import db_manager
+from commands import CommandContext, ListProcessesCommand
 
 console = Console()
 
 
 class JECCLI:
-    """Main CLI interface for JEC System"""
-
     def __init__(self):
-        self.current_menu = self.main_menu
-        self.running = True
+        self.context = CommandContext()
+        self.commands = {
+            "1": ("View Processes", ListProcessesCommand()),
+            # "2": ("Search Cases", SearchCasesCommand()),
+            # "3": ("User Profile", UserProfileCommand()),
+            # "4": ("Logout", LogoutCommand()),
+        }
 
     def display_header(self, title: str):
         """Display consistent header for all screens"""
@@ -48,8 +52,8 @@ class JECCLI:
         for key, (desc, _) in options.items():
             console.print(f"[green]{key}[/green]. {desc}")
 
-        choice = Prompt.ask("\nSelect an option", choices=list(options.keys()))
-        options[choice][1]()
+        choice = Prompt.ask("\nSelect an option", choices=list(self.commands.keys()))
+        self.commands[choice][1].execute(self.context)
 
     def login(self):
         """Handle user login"""
