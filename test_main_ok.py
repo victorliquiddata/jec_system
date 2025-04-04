@@ -1,8 +1,11 @@
+"""
+python -m pytest test_main_ok.py -v -s
+"""
+
 import pytest
 from unittest.mock import patch, MagicMock, call
 from main import JECCLI
-from auth import auth_manager
-from database import db_manager
+from commands import ExitCommand
 from rich.table import Table
 
 
@@ -24,9 +27,23 @@ def mock_prompt_ask():
 
 
 @pytest.fixture
-def mock_confirm_ask():
-    with patch("main.Confirm.ask") as mock:
+def mock_auth():
+    with patch("main.auth_manager") as mock:
         yield mock
+
+
+@pytest.fixture
+def mock_db():
+    with patch("main.db_manager") as mock:
+        yield mock
+
+
+@pytest.fixture
+def mock_commands():
+    with patch("main.LoginCommand"), patch("main.ListProcessesCommand"), patch(
+        "main.SearchCasesCommand"
+    ), patch("main.UserProfileCommand"), patch("main.ExitCommand"):
+        yield
 
 
 def test_display_header(cli, mock_console_print):
@@ -42,141 +59,141 @@ def test_clear_screen(cli, mock_console_print):
     mock_console_print.assert_called_with("\n" * 100)
 
 
-def test_main_menu_unauthenticated(cli, mock_prompt_ask):
-    with patch("main.auth_manager.get_current_user", return_value=None):
-        # Mock do comando Login
-        with patch("main.LoginCommand.execute") as mock_login:
-            cli.commands["1"] = ("Login", mock_login)
-            mock_prompt_ask.return_value = "1"
+def test_press_enter_to_continue(cli, mock_prompt_ask):
+    cli.press_enter_to_continue()
+    mock_prompt_ask.assert_called_once_with("\n[dim]Press Enter to continue...[/dim]")
 
+
+def test_main_menu_unauthenticated(cli, mock_prompt_ask, mock_auth, mock_commands):
+    mock_auth.get_current_user.return_value = None
+
+    # Create a completely mock command
+    mock_command = MagicMock()
+    mock_command.execute.return_value = None
+
+    # Replace the real command with our mock
+    with patch("main.LoginCommand", return_value=mock_command):
+        # Simulate selecting option 1
+        mock_prompt_ask.return_value = "1"
+
+        with patch("main.console.print"):
             cli.main_menu()
 
-            mock_login.assert_called_once()
+        mock_command.execute.assert_called_once()
 
 
-def test_login_success(cli, mock_prompt_ask, mock_console_print):
-    with patch("main.auth_manager.login", return_value=True):
-        mock_prompt_ask.side_effect = [
-            "test@example.com",
-            "password",
-            "",
-        ]  # Added Enter press
-        cli.login()
-        mock_console_print.assert_any_call(
-            "\n[bold green]Login successful![/bold green]"
-        )
+def test_main_menu_authenticated(cli, mock_prompt_ask, mock_auth, mock_commands):
+    mock_auth.get_current_user.return_value = {"name": "Test User"}
+
+    # Create a completely mock command
+    mock_command = MagicMock()
+    mock_command.execute.return_value = None
+
+    # Replace the real command with our mock
+    with patch("main.ListProcessesCommand", return_value=mock_command):
+        # Simulate selecting option 1
+        mock_prompt_ask.return_value = "1"
+
+        with patch("main.console.print"):
+            cli.main_menu()
+
+        mock_command.execute.assert_called_once()
 
 
-def test_login_failure(cli, mock_prompt_ask, mock_console_print):
-    with patch("main.auth_manager.login", return_value=False):
-        mock_prompt_ask.side_effect = [
-            "test@example.com",
-            "wrongpass",
-            "",
-        ]  # Added Enter press
-        cli.login()
-        mock_console_print.assert_any_call("\n[bold red]Invalid credentials[/bold red]")
+def test_main_menu_exit(cli, mock_prompt_ask, mock_auth, mock_commands):
+    mock_auth.get_current_user.return_value = None
 
+    # Create a mock exit command that sets running to False
+    mock_exit = MagicMock()
 
-def test_search_cases(cli, mock_prompt_ask, mock_console_print):
-    test_data = [
-        {
-            "numero_processo": "123",
-            "titulo": "Test Case",
-            "status": "Active",
-            "data_distribuicao": "2023-01-01",
-        }
-    ]
+    def exit_effect(context):
+        context.running = False
 
-    with patch("main.db_manager.execute_query", return_value=test_data):
-        mock_prompt_ask.side_effect = ["search term", ""]  # Search term + Enter
-        cli.search_cases()
+    mock_exit.execute.side_effect = exit_effect
 
-        # Verify table structure was created
-        assert any(
-            isinstance(args[0], Table) for args, _ in mock_console_print.call_args_list
-        )
+    with patch("main.ExitCommand", return_value=mock_exit):
+        mock_prompt_ask.return_value = "5"
 
+        with patch("main.console.print"):
+            cli.main_menu()
 
-def test_user_profile(cli, mock_confirm_ask, mock_console_print):
-    test_user = {
-        "nome_completo": "Test User",
-        "email": "test@example.com",
-        "tipo": "advogado",
-        "ultimo_login": "2023-01-01",
-    }
-
-    with patch("main.auth_manager.get_current_user", return_value=test_user):
-        mock_confirm_ask.return_value = False
-        cli.user_profile()
-
-        # Verify the table was printed with user data
-        table_calls = [
-            args[0]
-            for args, _ in mock_console_print.call_args_list
-            if isinstance(args[0], Table)
-        ]
-        assert len(table_calls) == 1
-
-        # Get the table rows
-        table = table_calls[0]
-        rows = [column._cells for column in table.columns]  # Access table data
-
-        # Verify all user data is present in the table
-        assert test_user["nome_completo"] in rows[1]  # Name column values
-        assert test_user["email"] in rows[1]  # Value column values
-        assert test_user["tipo"].capitalize() in rows[1]
-        assert str(test_user["ultimo_login"]) in rows[1]
-
-
-def test_change_password_success(cli, mock_prompt_ask, mock_console_print):
-    with patch("main.auth_manager.current_user", {"id": 1, "senha": "hashed"}):
-        with patch("main.auth_manager.verify_password", return_value=True):
-            with patch(
-                "main.auth_manager.validate_password_complexity",
-                return_value=(True, ""),
-            ):
-                with patch("main.auth_manager.hash_password", return_value="new_hash"):
-                    with patch("main.db_manager.execute_query"):
-                        mock_prompt_ask.side_effect = [
-                            "oldpass",
-                            "newpass",
-                            "newpass",
-                            "",  # Added Enter press
-                        ]
-                        cli.change_password()
-                        mock_console_print.assert_any_call(
-                            "\n[bold green]Password changed successfully![/bold green]"
-                        )
-
-
-def test_list_processes(cli, mock_console_print):
-    test_data = [
-        {
-            "numero_processo": "123",
-            "titulo": "Test Case",
-            "categoria": "Civil",
-            "status": "Active",
-            "data_distribuicao": "2023-01-01",
-        }
-    ]
-
-    with patch("main.db_manager.execute_query", return_value=test_data):
-        cli.list_processes()
-
-        # Verify table was printed
-        assert any(
-            isinstance(args[0], Table) for args, _ in mock_console_print.call_args_list
-        )
-
-
-def test_exit_app(cli):
-    cli.running = True
-    with patch("main.db_manager.close_all_connections") as mock_close:
-        cli.exit_app()
         assert cli.running is False
-        mock_close.assert_called_once()
 
 
-if __name__ == "__main__":
-    pytest.main(["-v", "-s", __file__])
+def test_run_loop(cli, mock_commands):
+    # Create a completely separate function that will replace current_menu
+    # We want to control exactly what happens in the loop
+    call_count = 0
+
+    def mock_menu_function():
+        nonlocal call_count
+        call_count += 1
+        # After 3 calls, set running to False to exit the loop
+        if call_count >= 3:
+            cli.running = False
+
+    # Replace the current_menu attribute entirely
+    # This way, cli.run() will call our mock function instead of main_menu
+    cli.current_menu = mock_menu_function
+
+    # Run the application loop
+    with patch("main.console.print"):  # Just suppress output
+        cli.running = True
+        cli.run()
+
+    # Verify our mock was called the expected number of times
+    assert call_count == 3
+
+
+def test_run_keyboard_interrupt(cli, mock_db, mock_console_print, mock_commands):
+    # Create a simple function that raises KeyboardInterrupt immediately
+    def interrupt_function():
+        raise KeyboardInterrupt()
+
+    # Replace current_menu directly
+    cli.current_menu = interrupt_function
+
+    # Run the application, which should catch our KeyboardInterrupt and call exit_app
+    cli.run()
+
+    # Verify exit behavior was triggered
+    mock_console_print.assert_called_with(
+        "\n[bold blue]Closing JEC System...[/bold blue]"
+    )
+    mock_db.close_all_connections.assert_called_once()
+
+
+def test_run_unexpected_error(cli, mock_console_print, mock_prompt_ask, mock_commands):
+    test_error = Exception("Test error")
+
+    # Mock press_enter_to_continue to prevent interactive blocking
+    mock_prompt_ask.return_value = ""
+
+    # Custom function to simulate an error and exit immediately
+    def error_function():
+        raise test_error
+
+    cli.current_menu = error_function
+
+    with patch("main.logging.error") as mock_logging:
+        cli.run()
+
+        # Ensure the error was logged
+        mock_logging.assert_called_with("Unexpected error: %s", str(test_error))
+
+        # Ensure the console printed the error message
+        mock_console_print.assert_any_call(
+            "\n[bold red]An unexpected error occurred[/bold red]"
+        )
+
+        # Ensure the loop exits after an error
+        assert cli.running is False
+
+
+def test_exit_app(cli, mock_db, mock_console_print):
+    cli.exit_app()
+    assert cli.running is False
+    mock_db.close_all_connections.assert_called_once()
+    mock_console_print.assert_called_with(
+        "\n[bold blue]Closing JEC System...[/bold blue]"
+    )

@@ -36,8 +36,14 @@ def mock_prompt():
 
 @pytest.fixture
 def mock_auth():
-    with patch("auth.auth_manager") as mock:  # Corrected path
+    with patch("auth.auth_manager") as mock:
         yield mock
+
+
+@pytest.fixture
+def mock_confirm():
+    with patch("commands.Confirm.ask", return_value=False):
+        yield
 
 
 @pytest.fixture
@@ -49,20 +55,20 @@ def mock_cli():
 # --- BaseCommand Tests ---
 def test_base_command_utilities():
     cmd = BaseCommand()
+
+    # Test display_header
     with patch("commands.console.print") as mock_print:
         cmd.display_header("Test")
         mock_print.assert_any_call("\n[bold blue]JEC System - Test[/bold blue]")
 
-    with patch("commands.Prompt.ask") as mock_ask:
-        cmd.press_enter_to_continue()
-        mock_ask.assert_called_once()
-
+    # Test build_table
     table = cmd.build_table(("Test", "red"))
+    assert isinstance(table, Table)
     assert len(table.columns) == 1
 
 
 # --- ListProcessesCommand Tests ---
-def test_list_processes_success(mock_db, mock_prompt):  # Added mock_prompt
+def test_list_processes_success(mock_db):
     test_data = [
         {
             "numero_processo": "123",
@@ -82,45 +88,43 @@ def test_list_processes_success(mock_db, mock_prompt):  # Added mock_prompt
         assert any(isinstance(args[0], Table) for args, _ in mock_print.call_args_list)
 
 
-def test_list_processes_empty(mock_db, mock_prompt):  # Added mock_prompt
+def test_list_processes_empty(mock_db):
     mock_db.execute_query.return_value = []
 
     cmd = ListProcessesCommand()
+    context = CommandContext()
 
     with patch("commands.console.print") as mock_print:
-        cmd.execute(CommandContext())
+        cmd.execute(context)
         mock_print.assert_any_call("\n[italic]No processes found[/italic]")
 
 
 # --- LoginCommand Tests ---
-def test_login_success(mock_auth, mock_prompt):
+def test_login_success(mock_auth):
     mock_auth.login.return_value = True
     mock_auth.get_current_user.return_value = {"name": "Test User"}
 
     cmd = LoginCommand()
     context = CommandContext()
 
-    with patch("commands.Prompt.ask", side_effect=["test@test.com", "password", ""]):
+    with patch("commands.Prompt.ask", side_effect=["test@test.com", "password"]):
         cmd.execute(context)
 
     mock_auth.login.assert_called_with("test@test.com", "password")
     assert context.current_user == {"name": "Test User"}
 
 
-def test_login_failure(mock_auth, mock_prompt):
+def test_login_failure(mock_auth):
     mock_auth.login.return_value = False
-    mock_auth.get_current_user.return_value = None  # Explicitly set
+    mock_auth.get_current_user.return_value = None
 
     cmd = LoginCommand()
     context = CommandContext()
 
-    with patch("commands.Prompt.ask", side_effect=["bad@test.com", "wrongpass", ""]):
+    with patch("commands.Prompt.ask", side_effect=["bad@test.com", "wrongpass"]):
         with patch("commands.console.print") as mock_print:
             cmd.execute(context)
-
-            # Verify error message
             mock_print.assert_any_call("\n[bold red]Invalid credentials[/bold red]")
-            # Verify user remains unset
             assert context.current_user is None
 
 
@@ -137,21 +141,96 @@ def test_search_cases(mock_db):
     mock_db.execute_query.return_value = test_data
 
     cmd = SearchCasesCommand()
+    context = CommandContext()
 
     with patch("commands.Prompt.ask", return_value="test"):
-        cmd.execute(CommandContext())
+        with patch("commands.console.print") as mock_print:
+            cmd.execute(context)
+            assert any(
+                isinstance(args[0], Table) for args, _ in mock_print.call_args_list
+            )
 
-        # Get actual query and normalize whitespace
-        called_args, _ = mock_db.execute_query.call_args
-        actual_query = " ".join(called_args[0].split())
+    # Verify query format
+    called_args, _ = mock_db.execute_query.call_args
+    actual_query = " ".join(called_args[0].split())
+    expected = (
+        "SELECT p.* FROM processos p LEFT JOIN partes_processo pp ON p.id = pp.processo_id "
+        "LEFT JOIN partes pa ON pp.parte_id = pa.id WHERE p.numero_processo ILIKE %s "
+        "OR p.titulo ILIKE %s OR pa.nome ILIKE %s ORDER BY p.data_distribuicao DESC"
+    )
+    assert actual_query == expected
 
-        # Define expected query pattern
-        expected = (
-            "SELECT p.* FROM processos p LEFT JOIN partes_processo pp ON p.id = pp.processo_id "
-            "LEFT JOIN partes pa ON pp.parte_id = pa.id WHERE p.numero_processo ILIKE %s "
-            "OR p.titulo ILIKE %s OR pa.nome ILIKE %s ORDER BY p.data_distribuicao DESC"
-        )
-        assert actual_query == expected
+
+# --- ExitCommand Tests ---
+def test_exit_command():
+    cmd = ExitCommand()
+    context = CommandContext()
+
+    assert context.running is True
+    cmd.execute(context)
+    assert context.running is False
+
+
+# --- UserProfileCommand Tests ---
+def test_user_profile_unauthenticated(mock_auth):
+    mock_auth.get_current_user.return_value = None
+
+    cmd = UserProfileCommand()
+    context = CommandContext()
+
+    with patch("commands.console.print") as mock_print:
+        cmd.execute(context)
+        mock_print.assert_any_call("\n[bold red]Not authenticated[/bold red]")
+
+
+def test_user_profile_authenticated(mock_auth, mock_confirm):
+    test_user = {
+        "nome_completo": "Test User",
+        "email": "test@test.com",
+        "tipo": "user",
+        "ultimo_login": "2023-01-01",
+        "id": 1,
+        "senha": "hashed_password",
+    }
+    mock_auth.get_current_user.return_value = test_user
+
+    cmd = UserProfileCommand()
+    context = CommandContext()
+
+    with patch("commands.console.print") as mock_print:
+        cmd.execute(context)
+        assert any(isinstance(args[0], Table) for args, _ in mock_print.call_args_list)
+
+
+def test_user_profile_change_password(mock_auth, mock_db):
+    test_user = {
+        "nome_completo": "Test User",
+        "email": "test@test.com",
+        "tipo": "user",
+        "ultimo_login": "2023-01-01",
+        "id": "550e8400-e29b-41d4-a716-446655440000",  # Changed to UUID string
+        "senha": "hashed_password",
+    }
+    mock_auth.get_current_user.return_value = test_user
+    mock_auth.verify_password.return_value = True
+    mock_auth.validate_password_complexity.return_value = (True, "")
+    mock_auth.hash_password.return_value = "new_hashed_password"
+
+    # Mock the database to return success
+    mock_db.execute_query.return_value = None  # For UPDATE queries
+
+    cmd = UserProfileCommand()
+    context = CommandContext()
+
+    with patch("commands.Confirm.ask", return_value=True):
+        with patch(
+            "commands.Prompt.ask", side_effect=["current_pass", "new_pass", "new_pass"]
+        ):
+            with patch("commands.console.print") as mock_print:
+                cmd.execute(context)
+                mock_print.assert_any_call(
+                    "\n[bold green]Password changed successfully![/bold green]"
+                )
 
 
 # --- CommandContext Tests ---

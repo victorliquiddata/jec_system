@@ -1,7 +1,5 @@
-# commands.py >> versao 6
-# commands.py (versão corrigida)
+# commands.py (updated)
 import logging
-from typing import Optional, Dict, List
 from rich.console import Console
 from rich.table import Table
 from rich.prompt import Prompt, Confirm
@@ -9,43 +7,32 @@ from rich import box
 from database import db_manager
 import auth
 
-
 console = Console()
-
-
-# At top of commands.py
 
 
 class CommandContext:
     def __init__(self):
         self.running = True
-        self.current_user = None  # Populated after login
+        self.current_user = None
         self.current_menu = "main"
 
     def refresh_user(self):
         """Update user data from auth system"""
-        from auth import auth_manager  # Lazy import
+        from auth import auth_manager
 
         self.current_user = auth_manager.get_current_user()
 
 
 class BaseCommand:
-    """Enhanced base class with common utilities"""
+    """Base class with common utilities"""
 
     @staticmethod
     def display_header(title: str):
-        """Reusable header display"""
         console.print(f"\n[bold blue]JEC System - {title}[/bold blue]")
         console.print("=" * 50)
 
     @staticmethod
-    def press_enter_to_continue():
-        """Standard pause method"""
-        Prompt.ask("\n[dim]Press Enter to continue...[/dim]")
-
-    @staticmethod
     def build_table(*columns) -> Table:
-        """Helper for creating consistent tables"""
         table = Table(box=box.ROUNDED)
         for col in columns:
             table.add_column(col[0], style=col[1])
@@ -57,18 +44,18 @@ class LoginCommand(BaseCommand):
         email = Prompt.ask("Email")
         password = Prompt.ask("Password", password=True)
 
-        if auth.auth_manager.login(email, password):  # Access through module
+        if auth.auth_manager.login(email, password):
             context.current_user = auth.auth_manager.get_current_user()
             console.print("\n[bold green]Login successful![/bold green]")
         else:
             console.print("\n[bold red]Invalid credentials[/bold red]")
 
-        self.press_enter_to_continue()
-
 
 class ExitCommand(BaseCommand):
     def execute(self, context):
         context.running = False
+        # Add any cleanup logic here if needed
+        console.print("\n[bold blue]Closing JEC System...[/bold blue]")
 
 
 class ListProcessesCommand(BaseCommand):
@@ -81,7 +68,7 @@ class ListProcessesCommand(BaseCommand):
 
             if not processes:
                 console.print("\n[italic]No processes found[/italic]")
-                return self.press_enter_to_continue()
+                return
 
             table = self.build_table(
                 ("Case #", "cyan"),
@@ -102,10 +89,8 @@ class ListProcessesCommand(BaseCommand):
 
             console.print(table)
         except Exception as e:
-            logging.error("Process list error: {str(e)}")
+            logging.error("Process list error: %s", str(e))  # Fixed logging
             console.print("\n[bold red]Error loading processes[/bold red]")
-        finally:
-            self.press_enter_to_continue()
 
 
 class SearchCasesCommand(BaseCommand):
@@ -126,7 +111,7 @@ class SearchCasesCommand(BaseCommand):
 
             if not results:
                 console.print("\n[italic]No matches found[/italic]")
-                return self.press_enter_to_continue()
+                return
 
             table = self.build_table(
                 ("Case #", "cyan"), ("Title", "magenta"), ("Status", ""), ("Filed", "")
@@ -142,14 +127,54 @@ class SearchCasesCommand(BaseCommand):
 
             console.print(table)
         except Exception as e:
-            logging.error("Search error: {str(e)}")
+            logging.error("Search error: %s", str(e))  # Fixed logging
             console.print("\n[bold red]Search failed[/bold red]")
-        finally:
-            self.press_enter_to_continue()
 
 
 class UserProfileCommand(BaseCommand):
     def execute(self, context):
-        from main import JECCLI  # Lazy import for shared methods
+        user = auth.auth_manager.get_current_user()
+        if not user:
+            console.print("\n[bold red]Not authenticated[/bold red]")
+            return
 
-        JECCLI().user_profile()  # Reuse existing UI flow
+        table = self.build_table(("Field", "cyan"), ("Value", "magenta"))
+
+        table.add_row("Name", user["nome_completo"])
+        table.add_row("Email", user["email"])
+        table.add_row("User Type", user["tipo"].capitalize())
+        table.add_row("Last Login", str(user["ultimo_login"]))
+
+        console.print(table)
+
+        if Confirm.ask("\nDo you want to change your password?"):
+            self.change_password(user)
+
+    def change_password(self, user):
+        current_pass = Prompt.ask("Current password", password=True)
+        if not auth.auth_manager.verify_password(user["senha"], current_pass):
+            console.print("\n[bold red]Incorrect current password[/bold red]")
+            return
+
+        new_pass = Prompt.ask("New password", password=True)
+        confirm_pass = Prompt.ask("Confirm new password", password=True)
+
+        if new_pass != confirm_pass:
+            console.print("\n[bold red]Passwords don't match[/bold red]")
+            return
+
+        valid, msg = auth.auth_manager.validate_password_complexity(new_pass)
+        if not valid:
+            console.print(f"\n[bold red]{msg}[/bold red]")
+            return
+
+        try:
+            new_hash = auth.auth_manager.hash_password(new_pass)
+            db_manager.execute_query(
+                "UPDATE usuarios SET senha = %s WHERE id = %s",
+                (new_hash, user["id"]),
+            )
+            console.print("\n[bold green]Password changed successfully![/bold green]")
+        except Exception as error:
+            logging.error("Password change failed: %s", str(error))
+            console.print("\n[bold red]Failed to change password[/bold red]")
