@@ -102,7 +102,7 @@ class ListProcessesCommand(BaseCommand):
 
             console.print(table)
         except Exception as e:
-            logging.error(f"Process list error: {str(e)}")
+            logging.error("Process list error: {str(e)}")
             console.print("\n[bold red]Error loading processes[/bold red]")
         finally:
             self.press_enter_to_continue()
@@ -142,7 +142,7 @@ class SearchCasesCommand(BaseCommand):
 
             console.print(table)
         except Exception as e:
-            logging.error(f"Search error: {str(e)}")
+            logging.error("Search error: {str(e)}")
             console.print("\n[bold red]Search failed[/bold red]")
         finally:
             self.press_enter_to_continue()

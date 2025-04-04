@@ -23,6 +23,7 @@ class JECCLI:
         self.context = CommandContext()
         self.commands = {}  # Inicialize vazio
         self.running = True
+        self.current_menu = self.main_menu  # <-- Initialize here
 
     def display_header(self, title: str):
         """Display consistent header for all screens"""
@@ -58,7 +59,11 @@ class JECCLI:
             console.print(f"[green]{key}[/green]. {desc}")
 
         choice = Prompt.ask("\nSelect an option", choices=list(self.commands.keys()))
-        self.commands[choice][1].execute(self.context)
+
+        if choice == "5":  # Check if the user selected "Exit"
+            self.exit_app()  # Call exit method
+        else:
+            self.commands[choice][1].execute(self.context)
 
     def login(self):
         """Handle user login"""
@@ -272,13 +277,12 @@ class JECCLI:
     def press_enter_to_continue(self):
         """Utility method for consistent pause"""
         Prompt.ask("\n[dim]Press Enter to continue...[/dim]")
-        self.current_menu = self.main_menu
 
     def exit_app(self):
         """Cleanly exit application"""
         console.print("\n[bold blue]Closing JEC System...[/bold blue]")
         db_manager.close_all_connections()
-        self.running = False
+        self.running = False  # This stops the loop
 
     def run(self):
         """Main application loop"""
