@@ -1,3 +1,8 @@
+"""
+run by using
+python -m pytest test_commands1_ok.py -v
+"""
+
 import pytest
 from unittest.mock import patch, MagicMock, call
 from commands import ListProcessesCommand, BaseCommand

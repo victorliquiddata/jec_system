@@ -6,7 +6,14 @@ from rich.table import Table
 from rich import box
 from auth import auth_manager
 from database import db_manager
-from commands import CommandContext, ListProcessesCommand, LoginCommand, ExitCommand
+from commands import (
+    CommandContext,
+    ListProcessesCommand,
+    LoginCommand,
+    ExitCommand,
+    SearchCasesCommand,
+    UserProfileCommand,
+)
 
 console = Console()
 
@@ -35,9 +42,13 @@ class JECCLI:
         if not user:
             # Atualize os comandos para usuários não autenticados
             self.commands = {
-                "1": ("Login", LoginCommand()),  # Novo comando
-                "2": ("Exit", ExitCommand()),  # Novo comando
+                "1": ("Login", LoginCommand()),
+                "2": ("List Processes", ListProcessesCommand()),
+                "3": ("Search Cases", SearchCasesCommand()),
+                "4": ("Profile", UserProfileCommand()),
+                "5": ("Exit", ExitCommand()),
             }
+
         else:
             # Comandos para usuários autenticados (existente)
             pass
