@@ -8,6 +8,7 @@ from rich.prompt import Prompt
 from rich import box
 from database import db_manager
 
+
 console = Console()
 
 
@@ -73,3 +74,14 @@ class ListProcessesCommand(BaseCommand):
             console.print("\n[bold red]Error loading processes[/bold red]")
         finally:
             self.press_enter_to_continue(context)
+
+
+class LoginCommand(BaseCommand):
+    def execute(self, context):
+        cli = JECCLI()  # Ou injete a referência corretamente
+        cli.login()
+
+
+class ExitCommand(BaseCommand):
+    def execute(self, context):
+        context.running = False

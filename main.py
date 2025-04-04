@@ -6,7 +6,7 @@ from rich.table import Table
 from rich import box
 from auth import auth_manager
 from database import db_manager
-from commands import CommandContext, ListProcessesCommand
+from commands import CommandContext, ListProcessesCommand, LoginCommand, ExitCommand
 
 console = Console()
 
@@ -14,12 +14,8 @@ console = Console()
 class JECCLI:
     def __init__(self):
         self.context = CommandContext()
-        self.commands = {
-            "1": ("View Processes", ListProcessesCommand()),
-            # "2": ("Search Cases", SearchCasesCommand()),
-            # "3": ("User Profile", UserProfileCommand()),
-            # "4": ("Logout", LogoutCommand()),
-        }
+        self.commands = {}  # Inicialize vazio
+        self.running = True
 
     def display_header(self, title: str):
         """Display consistent header for all screens"""
@@ -37,19 +33,17 @@ class JECCLI:
 
         user = auth_manager.get_current_user()
         if not user:
-            options = {"1": ("Login", self.login), "2": ("Exit", self.exit_app)}
-        else:
-            role = user["tipo"].capitalize()
-            options = {
-                "1": ("View Processes", self.list_processes),
-                "2": ("Search Cases", self.search_cases),
-                "3": ("User Profile", self.user_profile),
-                "4": ("Logout", self.logout),
+            # Atualize os comandos para usuários não autenticados
+            self.commands = {
+                "1": ("Login", LoginCommand()),  # Novo comando
+                "2": ("Exit", ExitCommand()),  # Novo comando
             }
-            if role == "Admin":
-                options["5"] = ("User Management", self.user_management)
+        else:
+            # Comandos para usuários autenticados (existente)
+            pass
 
-        for key, (desc, _) in options.items():
+        # Renderização do menu (mantenha o resto igual)
+        for key, (desc, _) in self.commands.items():
             console.print(f"[green]{key}[/green]. {desc}")
 
         choice = Prompt.ask("\nSelect an option", choices=list(self.commands.keys()))

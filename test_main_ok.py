@@ -44,9 +44,13 @@ def test_clear_screen(cli, mock_console_print):
 
 def test_main_menu_unauthenticated(cli, mock_prompt_ask):
     with patch("main.auth_manager.get_current_user", return_value=None):
-        mock_prompt_ask.return_value = "1"
-        with patch.object(cli, "login") as mock_login:
+        # Mock do comando Login
+        with patch("main.LoginCommand.execute") as mock_login:
+            cli.commands["1"] = ("Login", mock_login)
+            mock_prompt_ask.return_value = "1"
+
             cli.main_menu()
+
             mock_login.assert_called_once()
 
 
