@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from auth import AuthManager, auth_manager
-from database import DatabaseManager
+from database import db_manager
 
 
 @pytest.fixture

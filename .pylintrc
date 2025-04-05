@@ -1,0 +1,8 @@
+[TYPECHECK]
+# Ignorar erros em atributos dinâmicos do psycopg2
+ignored-classes=SimpleConnectionPool
+generated-members=maxconn,minconn,_used
+
+[MESSAGES CONTROL]
+# Desabilitar avisos específicos
+disable=protected-access, no-member

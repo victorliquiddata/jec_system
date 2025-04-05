@@ -1,190 +1,89 @@
-#####version 6 >> update if new vresion please
-
+# test_config.py
 import pytest
-from unittest.mock import patch, MagicMock
+from config import AppConfig, Theme
+from unittest.mock import patch
 import os
-from pathlib import Path
-from config import ConfigManager, config
-import dotenv
-import sys
 
 
-@pytest.fixture(autouse=True)
-def reset_config_singleton():
-    """Completely reset the ConfigManager between tests"""
-    # Backup original state
-    original_instance = ConfigManager._instance
-    original_initialized = ConfigManager._initialized
-    original_config = ConfigManager._config.copy()
+class TestAppConfig:
+    """Testes unitários para a classe AppConfig"""
 
-    # Reset for test
-    ConfigManager._instance = None
-    ConfigManager._initialized = False
-    ConfigManager._config = {}
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        """Fixture para salvar e restaurar configurações originais"""
+        original_db_config = AppConfig.DB_CONFIG.copy()
+        yield
+        # Restaura configurações após cada teste
+        AppConfig.DB_CONFIG = original_db_config
 
-    # Also reset the module-level config variable
-    if "config" in sys.modules[__name__].__dict__:
-        sys.modules[__name__].__dict__["config"] = None
+    def test_version_constant(self):
+        """Verifica se a versão está definida corretamente"""
+        assert hasattr(AppConfig, "VERSION")
+        assert isinstance(AppConfig.VERSION, str)
+        assert len(AppConfig.VERSION.split(".")) >= 2
 
-    yield
+    def test_db_config_structure(self):
+        """Verifica a estrutura da configuração de banco de dados"""
+        db_config = AppConfig.DB_CONFIG
+        assert isinstance(db_config, dict)
+        required_keys = ["host", "port", "user", "password", "database", "schema"]
+        assert all(key in db_config for key in required_keys)
 
-    # Restore original state
-    ConfigManager._instance = original_instance
-    ConfigManager._initialized = original_initialized
-    ConfigManager._config = original_config
-    if "config" in sys.modules[__name__].__dict__:
-        sys.modules[__name__].__dict__["config"] = original_instance
+    def test_auth_config(self):
+        """Verifica parâmetros de autenticação"""
+        auth = AppConfig.AUTH
+        assert auth["hashing_algorithm"] == "pbkdf2:sha256"
+        assert auth["iterations"] == 600000
+        assert isinstance(auth["password_rules"], dict)
 
+    def test_theme_loading(self):
+        """Testa carregamento de temas"""
+        for theme in Theme:
+            theme_config = AppConfig.load_theme(theme)
+            assert isinstance(theme_config, dict)
+            assert "header" in theme_config
+            assert "body" in theme_config
+            assert "status" in theme_config
 
-@pytest.fixture
-def mock_env_vars(monkeypatch):
-    """Mock environment variables for testing"""
-    # Clear all existing env vars that might interfere
-    for key in ["DB_HOST", "DB_PORT", "DB_USUARIO", "DB_SENHA", "DB_NOME", "LOG_LEVEL"]:
-        monkeypatch.delenv(key, raising=False)
+    def test_default_theme_fallback(self):
+        """Verifica fallback para tema padrão"""
+        invalid_theme = "inexistente"
+        theme_config = AppConfig.load_theme(invalid_theme)
+        assert theme_config == AppConfig.THEMES[Theme.ESCURO]
 
-    # Set required minimum config
-    monkeypatch.setenv("DB_USUARIO", "test_user")
-    monkeypatch.setenv("DB_SENHA", "test_pass")
-    monkeypatch.setenv("DB_NOME", "test_db")
+    def test_get_db_dsn(self):
+        """Verifica geração correta do DSN"""
+        # Configuração de teste isolada
+        test_config = {
+            "host": "testhost",
+            "port": "9999",
+            "user": "testuser",
+            "password": "testpass",
+            "database": "testdb",
+            "schema": "testschema",
+        }
 
+        # Substitui temporariamente a configuração
+        original_config = AppConfig.DB_CONFIG
+        AppConfig.DB_CONFIG = test_config
 
-@pytest.fixture
-def mock_env_file(tmp_path, monkeypatch):
-    """Create a mock .env file and ensure it's loaded"""
-    env_file = tmp_path / ".env"
-    env_file.write_text(
-        "DB_HOST=file_host\n"
-        "DB_PORT=4321\n"
-        "DB_USUARIO=envfile_user\n"
-        "DB_SENHA=envfile_pass\n"
-        "DB_NOME=envfile_db\n"
-    )
+        try:
+            dsn = AppConfig.get_db_dsn()
+            assert "host=testhost" in dsn
+            assert "port=9999" in dsn
+            assert "user=testuser" in dsn
+            assert "password=testpass" in dsn
+            assert "dbname=testdb" in dsn
+            assert "options='-c search_path=testschema'" in dsn
+        finally:
+            # Restaura configuração original
+            AppConfig.DB_CONFIG = original_config
 
-    # Mock Path.exists to only return True for our test file
-    def mock_exists(path):
-        return str(path) == str(env_file)
-
-    monkeypatch.setattr(Path, "exists", mock_exists)
-
-    # Create a proper mock for load_dotenv
-    original_load = dotenv.load_dotenv
-
-    def mock_load_dotenv(path=None, **kwargs):
-        if path is None:
-            path = env_file
-        # Actually load from our test file
-        return original_load(path, **kwargs)
-
-    monkeypatch.setattr(dotenv, "load_dotenv", mock_load_dotenv)
-    monkeypatch.setattr("config.load_dotenv", mock_load_dotenv)
-
-    return env_file
-
-
-def test_singleton_pattern():
-    """Test that ConfigManager is a proper singleton"""
-    instance1 = ConfigManager()
-    instance2 = ConfigManager()
-    assert instance1 is instance2
-
-
-def test_config_initialization(mock_env_vars):
-    """Test basic config initialization with environment variables"""
-    cfg = ConfigManager()
-    assert cfg.get("DB_USUARIO") == "test_user"
-    assert cfg.get("DB_SENHA") == "test_pass"
-    assert cfg.get("DB_NOME") == "test_db"
-    assert cfg.get("DB_MAX_CONNECTIONS") == 5  # Default value
-
-
-def test_env_file_loading(mock_env_file, monkeypatch):
-    """Test that config loads from .env file when present"""
-    # Ensure environment doesn't have these vars
-    monkeypatch.delenv("DB_HOST", raising=False)
-    monkeypatch.delenv("DB_PORT", raising=False)
-    monkeypatch.delenv("DB_USUARIO", raising=False)
-    monkeypatch.delenv("DB_SENHA", raising=False)
-    monkeypatch.delenv("DB_NOME", raising=False)
-
-    # Create a fresh ConfigManager which should load from our mock .env file
-    cfg = ConfigManager()
-    assert cfg.get("DB_HOST") == "file_host"
-    assert cfg.get("DB_PORT") == "4321"
-    assert cfg.get("DB_USUARIO") == "envfile_user"
-
-
-def test_missing_required_config(monkeypatch):
-    """Test that missing required config raises ValueError"""
-    # Clear all required vars
-    for key in ["DB_USUARIO", "DB_SENHA", "DB_NOME"]:
-        monkeypatch.delenv(key, raising=False)
-
-    # Ensure no .env file is loaded
-    monkeypatch.setattr(Path, "exists", lambda *args: False)
-    monkeypatch.setattr("config.load_dotenv", lambda *args, **kwargs: False)
-
-    with pytest.raises(ValueError) as excinfo:
-        ConfigManager()
-    assert "Missing required configuration variables" in str(excinfo.value)
-
-
-def test_config_reload(mock_env_vars, monkeypatch):
-    """Test that reload() refreshes configuration"""
-    cfg = ConfigManager()
-    monkeypatch.setenv("DB_USUARIO", "new_user")
-    cfg.reload()
-    assert cfg.get("DB_USUARIO") == "new_user"
-
-
-def test_config_get_with_default(mock_env_vars):
-    """Test get() with default values"""
-    cfg = ConfigManager()
-    assert cfg.get("NON_EXISTENT_KEY", "default") == "default"
-    assert cfg.get("NON_EXISTENT_KEY") is None
-
-
-def test_config_set_method(mock_env_vars):
-    """Test that set() method works for testing purposes"""
-    cfg = ConfigManager()
-    cfg.set("TEST_KEY", "test_value")
-    assert cfg.get("TEST_KEY") == "test_value"
-
-
-def test_no_env_file(monkeypatch):
-    """Test behavior when no .env file exists"""
-    monkeypatch.setattr(Path, "exists", lambda *args: False)
-    monkeypatch.setattr("config.load_dotenv", lambda *args, **kwargs: False)
-
-    # Set required vars directly in environment
-    monkeypatch.setenv("DB_USUARIO", "test_user")
-    monkeypatch.setenv("DB_SENHA", "test_pass")
-    monkeypatch.setenv("DB_NOME", "test_db")
-
-    cfg = ConfigManager()
-    assert cfg.get("DB_USUARIO") == "test_user"
-
-
-def test_singleton_instance_access():
-    """Test that the singleton instance can be accessed via config variable"""
-    # Import and reload the module to reset state
-    import importlib
-    import config
-
-    # Reset class-level attributes through the module
-    config.ConfigManager._instance = None
-    config.ConfigManager._initialized = False
-    config.ConfigManager._config = {}
-
-    # Reload the module to reset the config variable
-    importlib.reload(config)
-
-    # Create new instance
-    cfg = config.ConfigManager()
-
-    # Verify module-level config matches
-    assert config.config is cfg
-    assert isinstance(config.config, config.ConfigManager)
+    def test_theme_enum_values(self):
+        """Verifica valores do enum Theme"""
+        assert Theme.PADRAO.value == "padrao"
+        assert Theme.ESCURO.value == "escuro"
+        assert len(Theme) == 2
 
 
 if __name__ == "__main__":

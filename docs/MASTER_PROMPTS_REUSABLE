@@ -1,0 +1,267 @@
+**Master Guide of Prompts**, aka your **LLM-Powered Dev Companion**
+from **idea ➡️ code ➡️ test ➡️ prod**.  
+
+Let’s keep the formatting lightweight,
+tone helpful-but-casual,
+and the vibe ultra dev-friendly.
+
+---
+
+# ⚡️ MASTER GUIDE OF LLM PROMPTS  
+## *From Blank Page to Production*
+
+This is your prompt playbook — whether you’re solo-building or collabing with an LLM, these help you **kick off right, ask the right questions**, and **finish strong**.
+
+---
+
+## 🧠 PROJECT INITIATION  
+> Get the AI aligned with your vision
+
+```
+INSTRUCTION: PROJECT_KICKOFF  
+DETAILS: We're starting a new project. Ask me key questions to clarify the purpose, users, tech stack, and high-level architecture.
+```
+
+```
+INSTRUCTION: PROJECT_SCOPE  
+DETAILS: Here's the idea. Help define the scope for MVP — what's essential, what's optional, and what's a future-phase feature?
+```
+
+```
+INSTRUCTION: TECH_CHOICES  
+DETAILS: Based on the project goal, suggest ideal languages, frameworks, libraries, and tools. Prioritize speed and scalability.
+```
+
+```
+INSTRUCTION: STRUCTURE_SEED  
+DETAILS: Propose an initial folder structure, naming conventions, and file layout based on best practices for [React / Node / Python / etc.].
+```
+
+```
+INSTRUCTION: CREATE_DIR  
+DETAILS: cREATE the proposed initial folder structure, naming conventions, and file layout based on best practices for [Python / insert projs specific libs / etc.].
+```
+
+
+---
+
+## 🏗️ CORE BUILDING  
+> Turn ideas into structured code with focus and flow
+
+```plaintext
+INSTRUCTION: READ_ONLY_IMP_ILL_BRING_MORE  
+DETAILS: Read the current implementation. No action required yet — I’ll bring more modifications for us to read soon.  
+```
+
+```plaintext
+INSTRUCTION: READ_ONLY_IMPL_SO_FAR  
+DETAILS: Read the current implementation so far. No further action required.  
+```
+
+```plaintext
+INSTRUCTION: READ_ONLY  
+DETAILS: Just read the code. No further action required yet.  
+```
+
+```plaintext
+INSTRUCTION: FOCUSED_EDIT  
+DETAILS: Let's focus on [INSERT EITHER IMPROVING/FIXING/SCALING] a specific code block (to be defined) DUE TO [INSERT REASONS]. Make changes step-by-step, and provide exact locations for where to add, update, or delete components.  
+```
+
+```plaintext
+INSTRUCTION: FULL_FUNC_UPDATE  
+DETAILS: Provide fully updated functions. Specify exactly where to insert or replace them, step by step.  
+```
+
+```plaintext
+INSTRUCTION: FEATURE_PLAN  
+DETAILS: Here's a list of features. Break them into smaller tasks or components, and suggest the ideal build order.
+```
+
+```plaintext
+INSTRUCTION: API_DESIGN  
+DETAILS: Help define the shape of my API — endpoints, methods, payloads, and basic contracts.
+```
+
+```plaintext
+INSTRUCTION: DATA_SHAPE  
+DETAILS: Suggest models or schemas for the data we'll be handling, with ideal types and relationships.
+```
+
+---
+
+## 💎 POLISH & REFACTOR  
+> Tighten the bolts before we move on
+
+```plaintext
+INSTRUCTION: REFACTOR_ONLY  
+DETAILS: Improve existing code without adding new features. Include full updated imports, methods, etc., and follow a step-by-step approach.
+```
+
+```plaintext
+INSTRUCTION: TEST_READY  
+DETAILS: Prepare the code for testing. No new features or structural changes — just ensure test readiness (e.g., clarity, error handling, logging).  
+```
+
+```plaintext
+INSTRUCTION: STYLE_PASS  
+DETAILS: Apply consistent formatting, naming, and stylistic best practices. Follow [Prettier / PEP8 / Airbnb] guidelines.
+```
+
+```plaintext
+INSTRUCTION: DOC_PASS  
+DETAILS: Add concise docstrings or inline comments where helpful. Prioritize clarity over verbosity.
+```
+
+```plaintext
+INSTRUCTION: DEADCODE_PASS  
+DETAILS: Identify unused imports, variables, or functions and remove safely.
+```
+
+## 🧪 TESTING MODE  
+> Now we make sure it *actually works*
+
+```
+INSTRUCTION: TEST_SEED  
+DETAILS: Generate basic unit tests or test cases for this component/function.
+```
+
+```
+INSTRUCTION: TEST_READY  
+DETAILS: Make sure the code is testable — isolate logic, add return values, or inject dependencies where needed.
+```
+
+```
+INSTRUCTION: BUG_HUNT  
+DETAILS: Something’s off — help locate possible logic issues or edge cases I missed.
+```
+
+```
+INSTRUCTION: COVERAGE_REVIEW  
+DETAILS: Review the current test coverage and suggest key areas still untested.
+```
+
+```
+INSTRUCTION: TEST_STYLE_PASS  
+DETAILS: Clean up the tests — remove duplication, use better mocks, add structure or snapshots.
+```
+
+---
+
+## 📦 PRODUCTION + DEPLOY  
+> Seal the deal, ship it with confidence
+
+```
+INSTRUCTION: BUILD_READY  
+DETAILS: Ensure the codebase is ready for deployment. Clean, stable, no dev-only artifacts.
+```
+
+```
+INSTRUCTION: PACKAGE_SETUP  
+DETAILS: Help prepare the package.json / pyproject.toml / setup.py / etc. for publishing or deployment.
+```
+
+```
+INSTRUCTION: ENV_SETUP  
+DETAILS: Suggest proper environment variable structure and safe defaults for dev, staging, and prod.
+```
+
+```
+INSTRUCTION: DEPLOY_SCRIPT  
+DETAILS: Write or refine a deploy script / GitHub Action / CI job for smooth release process.
+```
+
+```
+INSTRUCTION: PROD_CHECKLIST  
+DETAILS: What’s left to check before we hit “go” — security, logging, performance, anything else?
+```
+
+---
+---
+
+## 🔄 CONTINUOUS IMPROVEMENT  
+> After shipping, keep iterating smart
+
+```plaintext
+INSTRUCTION: PRIORITY_REVIEW  
+DETAILS: No apparent glitches detected. What areas should we focus on next based on priority level?
+```
+
+```plaintext
+INSTRUCTION: PRIORITY_REVIEW  
+DETAILS: Everything looks stable so far. Please suggest the highest-impact areas for review or improvement now.
+```
+
+```plaintext
+INSTRUCTION: PRIORITY_REVIEW  
+DETAILS: No issues flagged. What should take precedence next — bugs, optimization, readability, or test coverage?
+```
+
+```plaintext
+INSTRUCTION: PRIORITY_REVIEW  
+DETAILS: Codebase appears clean. Please recommend a focus area based on urgency or long-term value.
+```
+
+```plaintext
+INSTRUCTION: PRIORITY_REVIEW  
+DETAILS: System functioning normally. Where should our attention shift next to maximize development momentum?
+```
+
+```plaintext
+INSTRUCTION: PERF_REVIEW  
+DETAILS: Analyze potential performance bottlenecks and suggest improvements.
+```
+
+```plaintext
+INSTRUCTION: SCALING_AUDIT  
+DETAILS: What parts of the code or infra might struggle under scale? Suggest improvements before it becomes an issue.
+```
+
+```plaintext
+INSTRUCTION: DEVXP_REVIEW  
+DETAILS: How can we improve the developer experience (DX)? Setup, speed, clarity, onboarding — all fair game.
+```
+
+---
+
+
+
+
+## 💾 BONUS UTILITY PROMPTS
+
+> Sprinkle these in anytime you need structure or clarity
+
+```
+INSTRUCTION: FILEMAP  
+DETAILS: Give me a high-level map of the current files and what they each do.
+```
+
+```
+INSTRUCTION: DIAGRAM_IT  
+DETAILS: Can you sketch a simple architecture / flow diagram for this part of the system?
+```
+
+```
+INSTRUCTION: COMMIT_MESSAGE_HELP  
+DETAILS: Suggest a clean, conventional commit message for this change.
+```
+
+```
+INSTRUCTION: RELEASE_NOTES  
+DETAILS: Summarize the updates in changelog or release-note style.
+```
+
+---
+
+### ⚡️ TL;DR: WORKFLOW VIBES
+
+| Phase            | Start With...            | Then...                                 |
+|------------------|--------------------------|------------------------------------------|
+| ✨ Idea           | `PROJECT_KICKOFF`         | `PROJECT_SCOPE`, `TECH_CHOICES`          |
+| ⚙️ Dev            | `FEATURE_PLAN`            | `FOCUSED_EDIT`, `FULL_FUNC_UPDATE`       |
+| 💄 Refactor       | `REFACTOR_ONLY`           | `STYLE_PASS`, `DOC_PASS`                 |
+| ✅ Test           | `TEST_SEED`               | `TEST_READY`, `BUG_HUNT`, `COVERAGE_REVIEW` |
+| 🚀 Ship It        | `BUILD_READY`             | `PACKAGE_SETUP`, `PROD_CHECKLIST`        |
+| 🔄 Improve        | `PRIORITY_REVIEW`         | `PERF_REVIEW`, `SCALING_AUDIT`           |
+
+---

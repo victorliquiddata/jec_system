@@ -3,7 +3,7 @@ import re
 import secrets
 import hashlib
 from typing import Optional, Dict
-from database import db_manager
+from database import DatabaseManager
 
 
 class AuthManager:
@@ -59,7 +59,7 @@ class AuthManager:
     def login(self, email: str, senha: str) -> bool:
         """Authenticate user and establish session"""
         try:
-            user = db_manager.execute_query(
+            user = get_db_instance.execute_query(
                 "SELECT * FROM usuarios WHERE email = %s", (email,), return_results=True
             )
             if user and self.verify_password(user[0]["senha"], senha):
