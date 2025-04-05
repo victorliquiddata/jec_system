@@ -87,4 +87,4 @@ class TestAppConfig:
 
 
 if __name__ == "__main__":
-    pytest.main(["-v", "-s", __file__])
+    pytest.main(["-v", __file__])

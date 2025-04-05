@@ -86,3 +86,9 @@ def test_update_footer_unauthenticated(cli, capsys):
 def test_clear_screen(cli):
     # Não há saída capturável com capsys, apenas garantir que não dá erro
     cli.clear_screen()
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(pytest.main(["-v", __file__]))

@@ -1,14 +1,18 @@
 # test_database_integration.py
 import pytest
-from datetime import datetime
+import sys
+import os
 from unittest.mock import patch, MagicMock
-from database import DatabaseManager
 from psycopg2 import OperationalError
 
 # Add these imports at the top of tests/test_database_integration_ok.py
 import itertools  # For mock_time fixture
 from concurrent.futures import ThreadPoolExecutor  # For concurrent access test
 from psycopg2 import pool
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+from database import DatabaseManager
 
 
 @pytest.fixture
@@ -280,3 +284,9 @@ def test_transaction_rollback(db_manager):
 def reset_singleton():
     if hasattr(DatabaseManager, "_instance"):
         del DatabaseManager._instance
+
+
+if __name__ == "__main__":
+    import sys
+
+    sys.exit(pytest.main(["-v", __file__]))

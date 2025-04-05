@@ -89,7 +89,7 @@ config.py"]],
       {
         "nome": "logger.py --->>> a ser criado --->>> criado e funcionando como esperado",
         "funcao": "Gerencia o sub dir logs/ com 3 logs principais: conexoes, logica e interface",
-        "descricao": "[timing de queries está ok nos testes - prosseguir a teste com auth para integração.]"
+        "descricao": "[timing de queries está ok nos testes - prosseguir a teste com novo auth para integração.]"
       }
     ],
     "arquivos_suporte_e_venv": [".env", ".gitignore", ".venv"],
@@ -456,6 +456,8 @@ config.py"]],
   }
 ]
 ```
+
+
 
 ## Authentication Implementation Details
 
