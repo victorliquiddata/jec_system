@@ -1,4 +1,4 @@
-# logger.py
+# logger.py - version 2!!!!
 import logging
 from pathlib import Path
 from typing import Dict, Optional, Literal
@@ -58,7 +58,7 @@ class JCELogger:
         """Logs de lógica de negócio."""
         log_method = getattr(self.loggers["logica"], level)
         log_method(
-            "{module}.{action}", extra={"metadata": metadata} if metadata else {}
+            f"{module}.{action}", extra={"metadata": metadata} if metadata else {}
         )
 
     def log_interface(

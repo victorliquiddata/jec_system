@@ -44,10 +44,15 @@ Uma aplicação de interface de linha de comando (CLI) para gerenciamento de cas
 {
   "testes": {
     "metodologia": "TDD com pytest via arquivos standalone (test_*.py)",
-    "estrategia": "execução standalone dos arquivos pytest a partir do root",
+    "estrategia": "execução standalone dos arquivos pytest a partir do root, com ponto principal ao fim usando "{
+      if __name__ == "__main__":
+    import sys
+
+    sys.exit(pytest.main(["-v", __file__]))
+para obter resultados detalhados e rapidos
+}"",
     "cobertura": {
-      "STATUS - REVISAndo TODOS aos poucos": [[originais:"auth.py", "database.py",] [recentes:"rich_cli.py,
-config.py"]],
+      "STATUS - revisoes feitas e 4 testes concluidos - porem o log de auth deve melhorar": [[originais:"auth.py", "database.py",] [recentes:"rich_cli.py,config.py,logger.py"]],
     },
     "git_integracao": "Commits por módulo testado"
   }
@@ -62,7 +67,7 @@ config.py"]],
     "localizacao_arquivos": "todos os arquivos na raiz do projeto",
     "arquivos_principais_em_root": [
       {
-        "nome": "main.py",
+        "nome": "main.py - não foi criado ainda",
         "funcao": "Ponto de Entrada",
         "descricao": "Gerencia O PONTO DE ENTRADA"
       },
@@ -87,7 +92,7 @@ config.py"]],
         "descricao": "Define interface utilizando Rich, implementando funcionalidades principais e garantindo principios DRY de escrita de codigo."
       },
       {
-        "nome": "logger.py --->>> a ser criado --->>> criado e funcionando como esperado",
+        "nome": "logger.py --->>> a ser criado --->>> criado e funcionando quase como esperado, agora devemos melhorar a integracao entre logger e auth ",
         "funcao": "Gerencia o sub dir logs/ com 3 logs principais: conexoes, logica e interface",
         "descricao": "[timing de queries está ok nos testes - prosseguir a teste com novo auth para integração.]"
       }

@@ -1,34 +1,46 @@
 # rich_cli.py (versão corrigida)
+
+from datetime import datetime
+from typing import Dict, List
+
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
-from rich.rule import Rule
 from rich.table import Table
 from rich.align import Align
 from rich.prompt import Prompt
-from datetime import datetime
-from typing import Dict, List, Optional, Union
 from config import AppConfig
 
 
 class JECCLI:
     """Interface de usuário unificada para o Sistema JEC usando Rich"""
 
+    _instance = None
+    _initialized = False  # Define at class level to avoid Pylint warning
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False  # Initialize instance flag
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:  # Now this is safe to check
+            return
+
         self.console = Console(width=80, highlight=False)
         self.theme = AppConfig.load_theme()
 
-        # Garante que o tema carregado seja válido
         if self.theme not in ["dark", "light"]:
-            self.theme = "dark"  # Tema padrão
+            self.theme = "dark"
 
-        self.user_context: Optional[Dict[str, Union[str, Dict]]] = None
-
-        self.system_status: Dict[str, str] = {
+        self.user_context = None
+        self.system_status = {
             "database": "offline",
             "auth": "inactive",
             "last_update": datetime.now().isoformat(),
         }
+        self._initialized = True  # Mark as initialized
 
     def _apply_theme(self, element_type: str) -> Dict[str, str]:
         """Aplica esquema de cores baseado no tema atual"""

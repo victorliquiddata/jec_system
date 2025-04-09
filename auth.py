@@ -1,3 +1,5 @@
+# auth.py >> version 2
+
 import re
 
 import secrets
@@ -16,18 +18,27 @@ class AuthManager:
     def __init__(self):
         self.current_user: Optional[Dict] = None
         self.logger = JCELogger()  # Add this line to use your custom logger
-
-    # Other methods remain the same
+        self.config = AppConfig()
+        # Log initialization of auth manager
+        self.logger.log_negocio("auth", "manager_initialized", level="info")
 
     def login(self, email: str, senha: str) -> bool:
         """Authenticate user and establish session, upgrading legacy passwords if needed."""
         try:
+            self.logger.log_negocio("auth", "login_attempt", {"email": email}, "info")
+
             db = get_db_instance()
             user = db.execute_query(
                 "SELECT * FROM usuarios WHERE email = %s", (email,), return_results=True
             )
 
             if not user:
+                self.logger.log_negocio(
+                    "auth",
+                    "login_failed",
+                    {"email": email, "reason": "user_not_found"},
+                    "warning",
+                )
                 self.current_user = None
                 return False
 
@@ -42,6 +53,16 @@ class AuthManager:
             password_valid = self.verify_password(stored_password, senha)
 
             if not password_valid:
+                self.logger.log_negocio(
+                    "auth",
+                    "login_failed",
+                    {
+                        "email": email,
+                        "user_id": user_data["id"],
+                        "reason": "invalid_password",
+                    },
+                    "warning",
+                )
                 self.current_user = None
                 return False
 
@@ -61,14 +82,26 @@ class AuthManager:
 
             self.current_user = user_data
             self.logger.log_negocio(
-                "auth", "login_success", {"user_email": email}, "info"
+                "auth",
+                "login_success",
+                {
+                    "user_id": user_data["id"],
+                    "email": email,
+                    "profile": user_data.get("perfil", "unknown"),
+                },
+                "info",
             )
             return True
 
         except Exception as e:
-            self.logger.log_negocio("auth", "login_failed", {"error": str(e)}, "error")
+            self.logger.log_negocio(
+                "auth",
+                "login_error",
+                {"email": email, "error": str(e), "error_type": type(e).__name__},
+                "error",
+            )
             self.current_user = None
-            return False
+        return False
 
     def logout(self):
         """Terminate current session"""
@@ -91,6 +124,13 @@ class AuthManager:
 
     def verify_password(self, stored_hash: str, provided_password: str) -> bool:
         """Verify a password against stored hash (supports legacy plaintext)"""
+        # Add this before each return False in the verify_password method
+        self.logger.log_negocio(
+            "auth",
+            "password_verification_failed",
+            {"reason": "invalid_format"},
+            "debug",
+        )
 
         if not isinstance(stored_hash, str) or not isinstance(provided_password, str):
             return False
@@ -128,15 +168,52 @@ class AuthManager:
     def validate_password_complexity(self, password: str) -> tuple[bool, str]:
         """Enforce password complexity rules"""
         if len(password) < 8:
-            return False, "Password must be at least 8 characters long"
+            reason = "Password must be at least 8 characters long"
+            self.logger.log_negocio(
+                "auth",
+                "password_complexity_check",
+                {"passed": False, "reason": reason},
+                "debug",
+            )
+            return False, reason
         if not re.search(r"[A-Z]", password):
             return False, "Password must contain at least one uppercase letter"
+        self.logger.log_negocio(
+            "auth",
+            "password_complexity_check",
+            {"passed": False, "reason": "reason_message_here"},
+            "debug",
+        )
         if not re.search(r"[a-z]", password):
             return False, "Password must contain at least one lowercase letter"
+        self.logger.log_negocio(
+            "auth",
+            "password_complexity_check",
+            {"passed": False, "reason": "reason_message_here"},
+            "debug",
+        )
         if not re.search(r"[0-9]", password):
             return False, "Password must contain at least one digit"
+        self.logger.log_negocio(
+            "auth",
+            "password_complexity_check",
+            {"passed": False, "reason": "reason_message_here"},
+            "debug",
+        )
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-            return False, "Password must contain at least one special character"
+            reason = "Password must contain at least one special character"
+            self.logger.log_negocio(
+                "auth",
+                "password_complexity_check",
+                {"passed": False, "reason": reason},
+                "debug",
+            )
+            return False, reason
+
+        # Success case - all checks passed
+        self.logger.log_negocio(
+            "auth", "password_complexity_check", {"passed": True}, "debug"
+        )
         return True, ""
 
     def get_current_user(self) -> Optional[Dict]:
