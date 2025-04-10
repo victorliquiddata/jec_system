@@ -5,31 +5,19 @@
 
 dir = [
 
-__pycache__
-.pytest_cache
-.venv
-archive
-data
-docs
-exports
-logs
-logs\conexoes.log
-logs\interface.log
-logs\logica.log
-temp
-tests
-UIs
-__init__.py
-.coverage
-.env
-.gitignore
-.pylintrc
-auth.py
-config.py
-database.py
-logger.py
-requirements.txt
-rich_cli.py
+├── logs/
+│   ├── conexoes.log
+│   ├── interface.log
+│   └── logica.log
+├── tests/
+├── .env
+├── auth.py
+├── config.py
+├── database.py
+├── logger.py
+├── requirements.txt
+└── rich_cli.py
+
 ],
 
 database = [

@@ -1,12 +1,10 @@
 # config.py
 import os
 import logging
-
 from typing import Dict, Any
 from dotenv import load_dotenv
 from enum import Enum
 from logger import JCELogger
-
 
 # Carrega variáveis de ambiente
 load_dotenv()
@@ -15,15 +13,16 @@ load_dotenv()
 class Theme(str, Enum):
     """Esquemas de cores disponíveis"""
 
-    PADRAO = "padrao"
-    ESCURO = "escuro"
+    ESCURO = "escuro"  # Dark theme
+    CLARO = "claro"  # Light theme (renamed from PADRAO to match tests)
+    PADRAO = "padrao"  # Kept for backward compatibility
 
 
 class AppConfig:
     """Configurações centrais da aplicação"""
 
     # Versão do sistema
-    VERSION = "1.3"
+    VERSION = "0.4"
 
     # Configurações de banco de dados
     DB_CONFIG = {
@@ -57,16 +56,6 @@ class AppConfig:
 
     # Esquemas de cores (para rich_cli.py)
     THEMES = {
-        Theme.PADRAO: {
-            "header": {"color": "#005F87", "border": "#003D5C"},
-            "body": {"primary": "#333333", "secondary": "#666666"},
-            "status": {
-                "success": "#4CAF50",
-                "warning": "#FFC107",
-                "error": "#F44336",
-                "info": "#2196F3",
-            },
-        },
         Theme.ESCURO: {
             "header": {"color": "#E0E0E0", "border": "#7A7A7A"},
             "body": {"primary": "#BDBDBD", "secondary": "#7A7A7A"},
@@ -77,15 +66,38 @@ class AppConfig:
                 "info": "#2196F3",
             },
         },
+        Theme.CLARO: {  # Changed from PADRAO to CLARO
+            "header": {"color": "#333333", "border": "#003D5C"},
+            "body": {"primary": "#333333", "secondary": "#666666"},
+            "status": {
+                "success": "#4CAF50",
+                "warning": "#FFC107",
+                "error": "#F44336",
+                "info": "#2196F3",
+            },
+        },
+        # Keep PADRAO as alias for CLARO if needed for backward compatibility
+        Theme.PADRAO: {
+            "header": {"color": "#005F87", "border": "#003D5C"},
+            "body": {"primary": "#333333", "secondary": "#666666"},
+            "status": {
+                "success": "#4CAF50",
+                "warning": "#FFC107",
+                "error": "#F44336",
+                "info": "#2196F3",
+            },
+        },
     }
 
     @classmethod
-    def load_theme(cls, theme_name: str = Theme.ESCURO) -> Dict[str, Any]:
+    def load_theme(cls, theme_name: str = Theme.ESCURO) -> Theme:
         """Carrega configurações de tema"""
         try:
-            return cls.THEMES[Theme(theme_name)]
+            if isinstance(theme_name, Theme):
+                return theme_name
+            return Theme(theme_name.lower())  # Handles case insensitivity
         except ValueError:
-            return cls.THEMES[Theme.ESCURO]
+            return Theme.ESCURO
 
     @classmethod
     def get_db_dsn(cls) -> str:

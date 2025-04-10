@@ -1,4 +1,5 @@
 # logger.py - version 5 (Final Integration)
+import json
 import logging
 from pathlib import Path
 from typing import Dict, Optional, Literal, Any, Union
@@ -20,19 +21,42 @@ class JCELogger:
         self._valid_levels = {"debug", "info", "warning", "error"}
 
     def _create_interface_logger(self) -> logging.Logger:
-        """Special logger for UI events with enhanced formatting"""
+        """Specialized logger for UI events with structured JSON formatting"""
         logger = logging.getLogger("jec.interface")
         logger.handlers.clear()
 
         handler = logging.FileHandler(self.log_dir / "interface.log", encoding="utf-8")
-        handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s | %(levelname)-8s | UI:%(message)s | %(extra)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-        )
+
+        class UIFormatter(logging.Formatter):
+            """Custom formatter for Rich CLI events"""
+
+            def format(self, record):
+                # Base log entry
+                log_entry = {
+                    "timestamp": self.formatTime(record),
+                    "level": record.levelname,
+                    "component": getattr(record, "component", "unknown"),
+                    "event": getattr(record, "event", "unknown"),
+                    "user": getattr(record, "user_id", None),
+                    "session": getattr(record, "session_id", None),
+                    "metadata": getattr(record, "metadata", {}),
+                }
+
+                # Add execution context if available
+                if hasattr(record, "execution_context"):
+                    log_entry.update(
+                        {
+                            "render_time_ms": getattr(record, "render_time", 0),
+                            "ui_element": getattr(record, "ui_element", "generic"),
+                        }
+                    )
+
+                return json.dumps(log_entry, ensure_ascii=False)
+
+        handler.setFormatter(UIFormatter())
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
+
         return logger
 
     def _setup_logging_env(self):
@@ -86,23 +110,32 @@ class JCELogger:
             f"{module}.{action}", extra={"metadata": metadata} if metadata else {}
         )
 
+    # Update JCELogger.log_interface() in logger.py
     def log_interface(
         self,
         component: str,
         event: str,
-        user_ctx: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_ctx: Optional[Dict] = None,
+        metadata: Optional[Dict] = None,
         level: LogLevel = "info",
     ) -> None:
-        """Enhanced UI event logging for rich_cli integration"""
+        """Enhanced logging with direct rich_cli context mapping"""
         log_method = getattr(self.loggers["interface"], self._safe_get_level(level))
 
-        # Prepare structured log data
-        log_data = {
+        # Standardized context format
+        record_attrs = {
             "component": component,
             "event": event,
-            **({"user": user_ctx} if user_ctx else {}),
-            **({"meta": metadata} if metadata else {}),
+            "user_id": user_ctx.get("email") if user_ctx else None,
+            "session_id": user_ctx.get("session_id") if user_ctx else None,
+            "metadata": metadata or {},
+            "ui_element": component,  # Auto-map component to UI element
         }
 
-        log_method(f"{component}.{event}", extra={"extra": log_data})
+        # Add timing if available in metadata
+        if metadata and "render_time" in metadata:
+            record_attrs["render_time_ms"] = (
+                float(metadata["render_time"].replace("s", "")) * 1000
+            )
+
+        log_method(event, extra=record_attrs)

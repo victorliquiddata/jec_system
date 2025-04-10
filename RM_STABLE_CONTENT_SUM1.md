@@ -20,10 +20,10 @@ Uma aplicação de interface de linha de comando (CLI) para gerenciamento de cas
     "roadmap": {
       "v0.2": "Otimização do pool de conexões com o banco de dados - COMPLETO",
       "v0.3": "Integração, Aperfeiçoamento e Revisão da UI Proposta atraves de integração de dois novos arquivos: rich_cli e config>> proceder para testes e revisão da integração geral - COMPLETO",
-      "v0.4": "Implementar e integrar sistema abrangente de logging com logger.py - EM PROCESSO",
-      "v0.5 em diante": "TESTE GERAL DE TODOS MÓDULOS - NÃO INICIADO",
+      "v0.4": "Implementar e integrar sistema abrangente de logging com logger.py - COMPLETO",
+      "v0.5": "TESTE GERAL DE TODOS MÓDULOS - A INICIAR",
       "vNUMERO": "[...]",
-      "v0.7 em diante": "Implementar gerenciamento completo de usuários, documentos e processos em etapas - NÃO INICIADO"
+      "v0.9 em diante": "Implementar gerenciamento completo de usuários, documentos e processos em etapas - NÃO INICIADO"
     
     }
   },
@@ -92,9 +92,9 @@ para obter resultados detalhados e rapidos
         "descricao": "Define interface utilizando Rich, implementando funcionalidades principais e garantindo principios DRY de escrita de codigo."
       },
       {
-        "nome": "logger.py --->>> a ser criado --->>> criado e funcionando --->>> test_logger.py e test_logger2.py ALL GREEN",
+        "nome": "logger.py",
         "funcao": "Gerencia o sub dir logs/ com 3 logs principais: conexoes, logica e interface",
-        "descricao": "[timing de queries está ok nos testes - prosseguir a teste com novo auth para integração.]"
+        "descricao": "Gera logs detalhados"
       }
     ],
     "arquivos_suporte_e_venv": [".env", ".gitignore", ".venv"],

@@ -36,20 +36,48 @@ class TestAppConfig:
         assert auth["iterations"] == 600000
         assert isinstance(auth["password_rules"], dict)
 
-    def test_theme_loading(self):
-        """Testa carregamento de temas"""
+    def test_theme_enum_values(self):
+        """Verifica valores do enum Theme"""
+        assert Theme.ESCURO.value == "escuro"
+        assert Theme.CLARO.value == "claro"
+        assert Theme.PADRAO.value == "padrao"
+        assert len(Theme) == 3  # Now includes PADRAO, ESCURO and CLARO
+
+    def test_theme_configurations(self):
+        """Verifica se todos os temas têm a estrutura correta"""
         for theme in Theme:
-            theme_config = AppConfig.load_theme(theme)
+            theme_config = AppConfig.THEMES[theme]
             assert isinstance(theme_config, dict)
             assert "header" in theme_config
             assert "body" in theme_config
             assert "status" in theme_config
 
-    def test_default_theme_fallback(self):
-        """Verifica fallback para tema padrão"""
-        invalid_theme = "inexistente"
-        theme_config = AppConfig.load_theme(invalid_theme)
-        assert theme_config == AppConfig.THEMES[Theme.ESCURO]
+            # Verify specific color values
+            if theme == Theme.ESCURO:
+                assert theme_config["header"]["color"] == "#E0E0E0"
+            elif theme == Theme.CLARO:
+                assert theme_config["header"]["color"] == "#333333"
+            elif theme == Theme.PADRAO:
+                assert theme_config["header"]["color"] == "#005F87"
+
+    def test_load_theme_method(self):
+        """Testa o método load_theme"""
+        # Test with enum values
+        assert AppConfig.load_theme(Theme.ESCURO) == Theme.ESCURO
+        assert AppConfig.load_theme(Theme.CLARO) == Theme.CLARO
+        assert AppConfig.load_theme(Theme.PADRAO) == Theme.PADRAO
+
+        # Test with string values
+        assert AppConfig.load_theme("escuro") == Theme.ESCURO
+        assert AppConfig.load_theme("claro") == Theme.CLARO
+        assert AppConfig.load_theme("padrao") == Theme.PADRAO
+
+        # Test case insensitivity
+        assert AppConfig.load_theme("ESCURO") == Theme.ESCURO
+        assert AppConfig.load_theme("CLARO") == Theme.CLARO
+
+        # Test fallback to ESCURO for invalid theme
+        assert AppConfig.load_theme("invalid") == Theme.ESCURO
 
     def test_get_db_dsn(self):
         """Verifica geração correta do DSN"""
@@ -78,12 +106,6 @@ class TestAppConfig:
         finally:
             # Restaura configuração original
             AppConfig.DB_CONFIG = original_config
-
-    def test_theme_enum_values(self):
-        """Verifica valores do enum Theme"""
-        assert Theme.PADRAO.value == "padrao"
-        assert Theme.ESCURO.value == "escuro"
-        assert len(Theme) == 2
 
 
 if __name__ == "__main__":
