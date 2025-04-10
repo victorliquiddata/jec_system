@@ -52,7 +52,7 @@ Uma aplicação de interface de linha de comando (CLI) para gerenciamento de cas
 para obter resultados detalhados e rapidos
 }"",
     "cobertura": {
-      "STATUS - revisoes feitas e 4 testes concluidos - porem o log de auth deve melhorar": [[originais:"auth.py", "database.py",] [recentes:"rich_cli.py,config.py,logger.py"]],
+      "STATUS - revisoes feitas e 5 testes concluidos - hora de INTEGRAR LOGGER E RICH_CLI": [[originais:"auth.py", "database.py",] [recentes:"rich_cli.py,config.py,logger.py"]],
     },
     "git_integracao": "Commits por módulo testado"
   }
@@ -92,7 +92,7 @@ para obter resultados detalhados e rapidos
         "descricao": "Define interface utilizando Rich, implementando funcionalidades principais e garantindo principios DRY de escrita de codigo."
       },
       {
-        "nome": "logger.py --->>> a ser criado --->>> criado e funcionando quase como esperado, agora devemos melhorar a integracao entre logger e auth ",
+        "nome": "logger.py --->>> a ser criado --->>> criado e funcionando --->>> test_logger.py e test_logger2.py ALL GREEN",
         "funcao": "Gerencia o sub dir logs/ com 3 logs principais: conexoes, logica e interface",
         "descricao": "[timing de queries está ok nos testes - prosseguir a teste com novo auth para integração.]"
       }

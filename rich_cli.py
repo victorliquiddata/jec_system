@@ -1,4 +1,4 @@
-# rich_cli.py (versão corrigida)
+# rich_cli.py version 3!!!!!!! integrating logger.py
 
 from datetime import datetime
 from typing import Dict, List
@@ -10,6 +10,7 @@ from rich.table import Table
 from rich.align import Align
 from rich.prompt import Prompt
 from config import AppConfig
+from logger import JCELogger
 
 
 class JECCLI:
@@ -41,6 +42,7 @@ class JECCLI:
             "last_update": datetime.now().isoformat(),
         }
         self._initialized = True  # Mark as initialized
+        self.logger = JCELogger()
 
     def _apply_theme(self, element_type: str) -> Dict[str, str]:
         """Aplica esquema de cores baseado no tema atual"""
