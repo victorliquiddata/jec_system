@@ -125,29 +125,46 @@ class AuthManager:
 
     def verify_password(self, stored_hash: str, provided_password: str) -> bool:
         """Verify a password against stored hash (supports legacy plaintext)"""
-        # Add this before each return False in the verify_password method
-        self.logger.log_negocio(
-            "auth",
-            "password_verification_failed",
-            {"reason": "invalid_format"},
-            "debug",
-        )
 
         if not isinstance(stored_hash, str) or not isinstance(provided_password, str):
+            self.logger.log_negocio(
+                "auth",
+                "password_verification_failed",
+                {"reason": "non_string_input"},
+                "debug",
+            )
             return False
 
         # Legacy plaintext password (for migration or fallback)
         if not stored_hash.startswith("pbkdf2:sha256:"):
-            return stored_hash.strip() == provided_password.strip()
+            match = stored_hash.strip() == provided_password.strip()
+            self.logger.log_negocio(
+                "auth",
+                "password_verification_legacy",
+                {"match": match, "used_legacy": True},
+                "debug",
+            )
+            return match
 
         try:
             parts = stored_hash.split("$")
             if len(parts) != 3:
+                self.logger.log_negocio(
+                    "auth",
+                    "password_verification_failed",
+                    {"reason": "invalid_hash_format", "parts_length": len(parts)},
+                    "debug",
+                )
                 return False
 
-            # Format: pbkdf2:sha256:600000$salt$hash
             algorithm_parts = parts[0].split(":")
             if len(algorithm_parts) != 3:
+                self.logger.log_negocio(
+                    "auth",
+                    "password_verification_failed",
+                    {"reason": "invalid_algorithm_format", "algorithm": parts[0]},
+                    "debug",
+                )
                 return False
 
             method = algorithm_parts[1]
@@ -161,13 +178,31 @@ class AuthManager:
                 salt.encode("utf-8"),
                 iterations,
             )
-            return secrets.compare_digest(new_hash.hex(), stored_key)
 
-        except (ValueError, AttributeError, IndexError):
+            match = secrets.compare_digest(new_hash.hex(), stored_key)
+
+            if not match:
+                self.logger.log_negocio(
+                    "auth",
+                    "password_verification_failed",
+                    {"reason": "hash_mismatch"},
+                    "debug",
+                )
+
+            return match
+
+        except (ValueError, AttributeError, IndexError) as e:
+            self.logger.log_negocio(
+                "auth",
+                "password_verification_failed",
+                {"reason": "exception", "error": str(e)},
+                "debug",
+            )
             return False
 
     def validate_password_complexity(self, password: str) -> tuple[bool, str]:
         """Enforce password complexity rules"""
+
         if len(password) < 8:
             reason = "Password must be at least 8 characters long"
             self.logger.log_negocio(
@@ -177,30 +212,37 @@ class AuthManager:
                 "debug",
             )
             return False, reason
+
         if not re.search(r"[A-Z]", password):
-            return False, "Password must contain at least one uppercase letter"
-        self.logger.log_negocio(
-            "auth",
-            "password_complexity_check",
-            {"passed": False, "reason": "reason_message_here"},
-            "debug",
-        )
+            reason = "Password must contain at least one uppercase letter"
+            self.logger.log_negocio(
+                "auth",
+                "password_complexity_check",
+                {"passed": False, "reason": reason},
+                "debug",
+            )
+            return False, reason
+
         if not re.search(r"[a-z]", password):
-            return False, "Password must contain at least one lowercase letter"
-        self.logger.log_negocio(
-            "auth",
-            "password_complexity_check",
-            {"passed": False, "reason": "reason_message_here"},
-            "debug",
-        )
+            reason = "Password must contain at least one lowercase letter"
+            self.logger.log_negocio(
+                "auth",
+                "password_complexity_check",
+                {"passed": False, "reason": reason},
+                "debug",
+            )
+            return False, reason
+
         if not re.search(r"[0-9]", password):
-            return False, "Password must contain at least one digit"
-        self.logger.log_negocio(
-            "auth",
-            "password_complexity_check",
-            {"passed": False, "reason": "reason_message_here"},
-            "debug",
-        )
+            reason = "Password must contain at least one digit"
+            self.logger.log_negocio(
+                "auth",
+                "password_complexity_check",
+                {"passed": False, "reason": reason},
+                "debug",
+            )
+            return False, reason
+
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
             reason = "Password must contain at least one special character"
             self.logger.log_negocio(
@@ -211,9 +253,12 @@ class AuthManager:
             )
             return False, reason
 
-        # Success case - all checks passed
+        # All checks passed
         self.logger.log_negocio(
-            "auth", "password_complexity_check", {"passed": True}, "debug"
+            "auth",
+            "password_complexity_check",
+            {"passed": True},
+            "debug",
         )
         return True, ""
 
