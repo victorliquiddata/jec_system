@@ -1,4 +1,13 @@
 # config.py
+"""
+config.py — [insert brief description] >> UPDATE HERE BEFORE ANY CHANGES
+
+Features:
+- [insert feat 1]
+- [insert feat 2]
+- [insert more feats if needed]
+"""
+
 import os
 import logging
 from dotenv import load_dotenv

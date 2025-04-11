@@ -1,7 +1,38 @@
+INSTRUCTION FOR LLM: READ ONLY THE CONTEXT BELOW, NO FURTHER ACTION REQUIRED YET = [
+
+### Estrutura do Diretório E Código Contextual
+```json
+{
+  "codebase": {
+    "dir": [
+
+.venv
+app\submenu_system.py -->> still empty
+app\usuario.py -->> still empty
+logs\conexoes.log
+logs\interface.log
+logs\logica.log
+temp
+tests
+__init__.py
+.coverage
+.env
+.gitignore
+.pylintrc
+auth.py
+config.py
+database.py
+logger.py
+main.py
+rich_cli.py
+
+    ],
+    "database": [
+
 ##database.py
 
+
 """
-database.py — [insert brief description] >> UPDATE HERE BEFORE ANY CHANGES
 Database Manager Module
 
 Handles all PostgreSQL database operations with connection pooling and comprehensive logging.
@@ -13,7 +44,6 @@ Features:
 - Query execution tracking
 - Detailed error logging
 - Performance monitoring
-- [insert more feats if needed]
 """
 
 import os
@@ -233,3 +263,37 @@ def get_db_instance() -> DatabaseManager:
 
 # Then modify any code that was using the direct 'db' instance to use:
 db = get_db_instance()
+
+
+    ],
+    "auth": [
+
+      TO BE INSERTED LATER
+
+    ],
+    "config": [
+
+      TO BE INSERTED LATER
+
+    ],
+    "rich_cli": [
+
+      TO BE INSERTED LATER
+
+    ],
+    "logger": [
+
+      TO BE INSERTED LATER
+
+    ],
+
+    "main": [
+
+      TO BE INSERTED LATER
+
+    ]
+  }
+}
+```
+
+]

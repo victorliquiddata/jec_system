@@ -1,43 +1,44 @@
 
 ### Estrutura do Diretório E Código Contextual
 ```json
+{
   "codebase": {
-
-dir = [
-
-
-
-],
-
-database = [
+    "dir": [
 
 
 
-],
-
-auth = [
-
-
-
-],
-
-config = [
+    ],
+    "database": [
 
 
 
-],
+    ],
+    "auth": [
 
-rich_cli = [
+      TO BE INSERTED LATER
 
+    ],
+    "config": [
 
+      TO BE INSERTED LATER
 
-],
+    ],
+    "rich_cli": [
 
-logger = [
+      TO BE INSERTED LATER
 
+    ],
+    "logger": [
 
+      TO BE INSERTED LATER
 
-]
+    ],
 
-  
+    "main": [
+
+      TO BE INSERTED LATER
+
+    ]
   }
+}
+```
