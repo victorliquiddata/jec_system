@@ -1,4 +1,4 @@
-##version
+##database.py
 
 
 """
@@ -20,7 +20,6 @@ from typing import Optional, List, Dict, Any, Union
 from psycopg2 import pool, OperationalError, Error, DatabaseError
 from psycopg2.extensions import connection  # Removed unused 'cursor'
 from dotenv import load_dotenv
-from time import time  # Adicionar import
 from time import perf_counter  # Add this import
 from datetime import datetime
 from logger import JCELogger
@@ -106,7 +105,9 @@ class DatabaseManager:
                 self.logger.log_conexao(
                     "POOL_FAIL", f"Failed to initialize pool: {str(exc)}", level="error"
                 )
-                raise DatabaseError(f"Connection pool initialization failed: {exc}")
+                raise DatabaseError(
+                    f"Connection pool initialization failed: {exc}"
+                ) from exc
 
     def _get_connection(self) -> connection:
         """Get a connection with retry logic and logging"""

@@ -1,8 +1,8 @@
-# logger.py - version 5 (Final Integration)
+# logger.py - version 5
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Literal, Any, Union
+from typing import Dict, Optional, Literal, Any
 
 LogLevel = Literal["info", "warning", "error", "debug"]
 

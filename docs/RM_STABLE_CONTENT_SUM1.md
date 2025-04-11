@@ -2,6 +2,42 @@
 
 Uma aplicação de interface de linha de comando (CLI) para gerenciamento de casos de juizados especiais cíveis.
 
+## Informações de Entrega do Projeto
+
+```json
+{
+  "entrega": {
+    "prazo": "7_dias",
+    "prioridade": "gerenciamento_documentos",
+    "restricoes": ["uso_interno_somente"]
+  },
+  "implementacao": {
+    "foco_atual": [
+      "conexao_banco_dados",
+      "CRUD_basico_usuarios",
+      "outras_funcs_e_queries_basicas",
+    ],
+    "padroes_codigo": [
+      "tratamento_de_erros",
+      "validacao_de_parametros",
+      "robustez_da_conexao",
+      "configuracao_env"
+    ]
+  },
+  "desenvolvedor": {
+    "nome": "Victor",
+    "data_nascimento": "06/1994",
+    "localizacao": "São Paulo, Brasil",
+    "email": "victor.didier@gmail.com",
+    "skills": [
+      "sql_intermediario",
+      "python_intermediario",
+      "graphic_design_intermediario"
+    ]
+  }
+}
+```
+
 ## Visão Geral do Projeto
 
 ```json
@@ -21,7 +57,8 @@ Uma aplicação de interface de linha de comando (CLI) para gerenciamento de cas
       "v0.2": "Otimização do pool de conexões com o banco de dados - COMPLETO",
       "v0.3": "Integração, Aperfeiçoamento e Revisão da UI Proposta atraves de integração de dois novos arquivos: rich_cli e config>> proceder para testes e revisão da integração geral - COMPLETO",
       "v0.4": "Implementar e integrar sistema abrangente de logging com logger.py - COMPLETO",
-      "v0.5": "TESTE GERAL DE TODOS MÓDULOS - A INICIAR",
+      "v0.5": "TESTE GERAL DE TODOS MÓDULOS - COMPLETO",
+      "v0.6": "Implementar main.py - EM PROGRESSO",
       "vNUMERO": "[...]",
       "v0.9 em diante": "Implementar gerenciamento completo de usuários, documentos e processos em etapas - NÃO INICIADO"
     
@@ -38,6 +75,30 @@ Uma aplicação de interface de linha de comando (CLI) para gerenciamento de cas
 }
 ```
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Testes
 
 ```json
@@ -52,9 +113,29 @@ Uma aplicação de interface de linha de comando (CLI) para gerenciamento de cas
 para obter resultados detalhados e rapidos
 }"",
     "cobertura": {
-      "STATUS - revisoes feitas e 5 testes concluidos - hora de INTEGRAR LOGGER E RICH_CLI": [[originais:"auth.py", "database.py",] [recentes:"rich_cli.py,config.py,logger.py"]],
+      "STATUS - revisoes feitas, integrando e pronto para continuar testando main e outros mods": [[originais:"auth.py", "database.py",] [recentes:"rich_cli.py","config.py","logger.py", "main.py"]],
     },
     "git_integracao": "Commits por módulo testado"
+  }
+}
+```
+
+## Funcionalidades
+
+```json
+{
+  "funcionalidades": {
+    "essenciais": {
+      "gerenciamento_de_login_e_temas": ["CRUD", "autenticacao"],
+      "gerenciamento_usuarios": ["CRUD", "autenticacao"],
+      "gerenciamento_processos": ["CRUD", "autenticacao"],
+      "rastreamento_processos": ["status", "prazos"]
+    },
+    "futuro": {
+      "calendario": ["audiências", "compromissos"],
+      "integracoes": ["PJe", "Esaj"],
+      "escalabilidade": ["dados_flexiveis", "principios_DRY"]
+    }
   }
 }
 ```
@@ -67,9 +148,9 @@ para obter resultados detalhados e rapidos
     "localizacao_arquivos": "todos os arquivos na raiz do projeto",
     "arquivos_principais_em_root": [
       {
-        "nome": "main.py - não foi criado ainda",
+        "nome": "main.py: ARQUIVO CRIADO >>> PROX ETAPA, FINALIZAR TESTE DE INTEGRACAO ENTRE main, auth e database",
         "funcao": "Ponto de Entrada",
-        "descricao": "Gerencia O PONTO DE ENTRADA"
+        "descricao": "Gerencia O PONTO DE ENTRADA E TELA INICIAL"
       },
       {
         "nome": "database.py",
@@ -109,6 +190,196 @@ para obter resultados detalhados e rapidos
   }
 }
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Requisitos de Interface (UI)
+
+```json
+{
+  "requisitos_ui": {
+    "estilo": "dashboard_moderno_minimalista_com_cores_suaves",
+    "componentes": [
+      "barras_de_progresso",
+      "seletor_de_tema",
+      "tela_de_login"
+    ],
+    "navegacao": {
+      "restricoes_visitante": true,
+      "pre_visualizacoes_rapidas": true
+    },
+  }
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## Módulos Nucleares
+
+```json
+{
+  "modulos_nucleares": {
+    "config": {
+      "descricao": "Gerenciamento de temas",
+      "temas": ["padrao", "claro", "escuro"],
+      "funcionalidades": ["esquemas_cores"]
+    },
+    "banco_dados": {
+      "tipo": "PostgreSQL",
+      "conexao": {
+        "pooling": "SimpleConnectionPool (implementado com reconexão automática)",
+        "min_conexoes": 1,
+        "max_conexoes": 5,
+        "timeout": 30,
+        "tentativas_reconexao": 3
+      },
+      "implementado": {
+        "core": ["config", "auth", "database", "rich_cli", "logger", "main"],
+        "pendente": [
+          "INTEGRACAO FINAL de main.py",
+          "melhorias de ui",
+          "temas_ui",
+          "implementação de modelos",
+          "modularização",
+          "opções crud básicas",
+          "opções crud avançadas",
+          "relatórios",
+          "análise básica",
+          "análise avançada",
+          "integração com sistemas: esaj, etc"
+        ]
+      }
+    },
+    "autenticacao": {
+      "seguranca": {
+        "hashing": "PBKDF2-HMAC-SHA256",
+        "iteracoes": 600000,
+        "tempo_expiracao_sessao": "30_minutos"
+      },
+      "roles_usuarios": ["advogado", "juiz", "servidor", "parte", "visitante"]
+    },
+    "menus": {
+      "estilo": "painel_numerado",
+      "funcionalidades": ["atalhos", "contexto_dinamico", "entrada_sql"]
+    },
+    "servicos": {
+      "entidades": ["corresponde_info_db"]
+    }
+  }
+}
+```
+
+## Especificações Técnicas
+
+```json
+{
+  "especificacoes_tecnicas": {
+    "sistema_operacional_unico": "Windows",
+    "servidor": {
+      "modelo": "Acer 2020",
+      "especificacoes": "20GB RAM, Intel Core i5, servidor: apenas roda postgres e pgadmin e se conecta ao wifi doméstico"
+    },
+    "rede": "Wi-Fi LAN",
+    "cliente": {
+      "modelo": "Lenovo 2014",
+      "especificacoes": "16GB RAM, Intel Core i7, Geforce RTX 4050, cliente/ambiente dev: apenas VS Code + Python + PowerShell + CMD + integração com GitHub, etc; conexão via Wi-Fi doméstico"
+    },
+    "log": {
+      "nivel": "desconhecido - [inserir após análise]",
+      "requisitos_venv": [
+        "psycopg2-binary",
+        "python-dotenv",
+        "rich",
+        "pytest", 
+        "[ADICIONAR MAIS SE NECESSÁRIO]"
+      ]
+    }
+  }
+}
+```
+
+
+
+
+
+
+
+
+
 
 ---
 
@@ -190,8 +461,6 @@ Defines standard structure for:
 
 ---
 
-
-
 ## Authentication Implementation Details
 
 ```json
@@ -268,174 +537,4 @@ Defines standard structure for:
 
 
 
-
-## Módulos Nucleares
-
-```json
-{
-  "modulos_nucleares": {
-    "config": {
-      "descricao": "Gerenciamento de temas",
-      "temas": ["padrao", "escuro"],
-      "funcionalidades": ["esquemas_cores"]
-    },
-    "banco_dados": {
-      "tipo": "PostgreSQL",
-      "conexao": {
-        "pooling": "SimpleConnectionPool (implementado com reconexão automática)",
-        "min_conexoes": 1,
-        "max_conexoes": 5,
-        "timeout": 30,
-        "tentativas_reconexao": 3
-      },
-      "implementado": {
-        "core": ["auth", "database", "cli_base"],
-        "pendente": [
-          "melhorias de ui",
-          "temas_ui",
-          "implementação de modelos",
-          "modularização",
-          "opções crud básicas",
-          "opções crud avançadas",
-          "relatórios",
-          "análise básica",
-          "análise avançada",
-          "integração com sistemas: esaj, etc"
-        ]
-      }
-    },
-    "autenticacao": {
-      "seguranca": {
-        "hashing": "PBKDF2-HMAC-SHA256",
-        "iteracoes": 600000,
-        "tempo_expiracao_sessao": "30_minutos"
-      },
-      "roles_usuarios": ["advogado", "juiz", "servidor", "parte", "visitante"]
-    },
-    "menus": {
-      "estilo": "painel_numerado",
-      "funcionalidades": ["atalhos", "contexto_dinamico", "entrada_sql"]
-    },
-    "servicos": {
-      "entidades": ["corresponde_info_db"]
-    }
-  }
-}
-```
-
-## Especificações Técnicas
-
-```json
-{
-  "especificacoes_tecnicas": {
-    "sistema_operacional_unico": "Windows",
-    "servidor": {
-      "modelo": "Acer 2020",
-      "especificacoes": "20GB RAM, Intel Core i5, servidor: apenas roda postgres e pgadmin e se conecta ao wifi doméstico"
-    },
-    "rede": "Wi-Fi LAN",
-    "cliente": {
-      "modelo": "Lenovo 2014",
-      "especificacoes": "16GB RAM, Intel Core i7, Geforce RTX 4050, cliente/ambiente dev: apenas VS Code + Python + PowerShell + CMD + integração com GitHub, etc; conexão via Wi-Fi doméstico"
-    },
-    "log": {
-      "nivel": "desconhecido - [inserir após análise]",
-      "requisitos_venv": [
-        "psycopg2-binary",
-        "python-dotenv",
-        "rich",
-        "pytest", 
-        "[ADICIONAR MAIS SE NECESSÁRIO]"
-      ]
-    }
-  }
-}
-```
-
-## Funcionalidades
-
-```json
-{
-  "funcionalidades": {
-    "essenciais": {
-      "gerenciamento_de_login_e_temas": ["CRUD", "autenticacao"],
-      "gerenciamento_usuarios": ["CRUD", "autenticacao"],
-      "gerenciamento_processos": ["CRUD", "autenticacao"],
-      "rastreamento_processos": ["status", "prazos"]
-    },
-    "futuro": {
-      "calendario": ["audiências", "compromissos"],
-      "integracoes": ["PJe", "Esaj"],
-      "escalabilidade": ["dados_flexiveis", "principios_DRY"]
-    }
-  }
-}
-```
-
-## Requisitos de Interface (UI)
-
-```json
-{
-  "requisitos_ui": {
-    "estilo": "dashboard_moderno_minimalista_com_cores_suaves",
-    "componentes": [
-      "barras_de_progresso",
-      "seletor_de_tema",
-      "tela_de_login"
-    ],
-    "navegacao": {
-      "restricoes_visitante": true,
-      "pre_visualizacoes_rapidas": true
-    },
-    "seguranca": {
-      "hashing": "PBKDF2-HMAC-SHA256 (600k iterações)",
-      "salt": "secrets.token_hex(16)",
-      "legacy_support": "Manipulador de migração de senhas em texto plano",
-      "complexity_rules": [
-        "mínimo 8 caracteres",
-        "letra maiúscula",
-        "letra minúscula",
-        "dígito",
-        "caractere especial"
-      ]
-    }
-  }
-}
-```
-
-
-## Informações de Entrega do Projeto
-
-```json
-{
-  "entrega": {
-    "prazo": "15_dias",
-    "prioridade": "gerenciamento_documentos",
-    "restricoes": ["uso_interno_somente"]
-  },
-  "implementacao": {
-    "foco_atual": [
-      "conexao_banco_dados",
-      "CRUD_basico_usuarios"
-    ],
-    "padroes_codigo": [
-      "tratamento_de_erros",
-      "validacao_de_parametros",
-      "robustez_da_conexao",
-      "configuracao_env"
-    ]
-  },
-  "desenvolvedor": {
-    "nome": "Victor",
-    "data_nascimento": "06/1994",
-    "localizacao": "São Paulo, Brasil",
-    "email": "victor.didier@gmail.com",
-    "skills": [
-      "sql_intermediario",
-      "python_intermediario",
-      "graphic_design_intermediario"
-    ]
-  }
-}
-```
 

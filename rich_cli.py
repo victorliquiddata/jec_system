@@ -1,4 +1,4 @@
-# rich_cli.py version 3!!!!!!! integrating logger.py OMG TRYING AGAIN
+# rich_cli.py version 5 >>> integrating with main about to start!!!!!!!!!!!
 
 import traceback
 from datetime import datetime
@@ -137,7 +137,9 @@ class JECCLI:
             style=self._apply_theme("body")["primary"],
         )
 
-    def prompt_input(self, label: str, input_type: type = str) -> str:
+    def prompt_input(
+        self, label: str, input_type: type = str, password: bool = False
+    ) -> str:
         """Get user input with type validation and logging"""
         attempt = 0
         max_attempts = 3
@@ -145,7 +147,12 @@ class JECCLI:
         while attempt < max_attempts:
             try:
                 attempt += 1
-                value = Prompt.ask(f"[bold]{label}[/]", console=self.console)
+                if password:
+                    value = Prompt.ask(
+                        f"[bold]{label}[/]", console=self.console, password=True
+                    )
+                else:
+                    value = Prompt.ask(f"[bold]{label}[/]", console=self.console)
 
                 self.logger.log_interface(
                     "Input",

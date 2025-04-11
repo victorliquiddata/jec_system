@@ -1,10 +1,8 @@
 # config.py
 import os
 import logging
-from typing import Dict, Any
 from dotenv import load_dotenv
 from enum import Enum
-from logger import JCELogger
 
 # Carrega variáveis de ambiente
 load_dotenv()

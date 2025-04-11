@@ -6,6 +6,7 @@ import secrets
 import hashlib
 from typing import Optional, Dict
 
+import psycopg2  # or your actual DB library
 
 from database import get_db_instance
 from logger import JCELogger
@@ -93,7 +94,7 @@ class AuthManager:
             )
             return True
 
-        except Exception as e:
+        except (psycopg2.DatabaseError, ValueError, AttributeError, IndexError) as e:
             self.logger.log_negocio(
                 "auth",
                 "login_error",
@@ -101,7 +102,7 @@ class AuthManager:
                 "error",
             )
             self.current_user = None
-        return False
+            return False
 
     def logout(self):
         """Terminate current session"""

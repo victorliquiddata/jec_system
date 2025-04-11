@@ -5,24 +5,17 @@
 
 dir = [
 
-├── logs/
-│   ├── conexoes.log
-│   ├── interface.log
-│   └── logica.log
-├── tests/
-├── .env
-├── auth.py
-├── config.py
-├── database.py
-├── logger.py
-├── requirements.txt
-└── rich_cli.py
+auth.py
+config.py
+database.py
+logger.py
+rich_cli.py
 
 ],
 
 database = [
 
-##version
+##database.py
 
 
 """
@@ -261,6 +254,41 @@ db = get_db_instance()
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 auth = [
 
 # auth.py >> version 2
@@ -492,17 +520,55 @@ auth_manager = AuthManager()
 
 ],
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 config = [
 
 # config.py
 import os
 import logging
-
 from typing import Dict, Any
 from dotenv import load_dotenv
 from enum import Enum
 from logger import JCELogger
-
 
 # Carrega variáveis de ambiente
 load_dotenv()
@@ -511,15 +577,16 @@ load_dotenv()
 class Theme(str, Enum):
     """Esquemas de cores disponíveis"""
 
-    PADRAO = "padrao"
-    ESCURO = "escuro"
+    ESCURO = "escuro"  # Dark theme
+    CLARO = "claro"  # Light theme (renamed from PADRAO to match tests)
+    PADRAO = "padrao"  # Kept for backward compatibility
 
 
 class AppConfig:
     """Configurações centrais da aplicação"""
 
     # Versão do sistema
-    VERSION = "1.3"
+    VERSION = "0.4"
 
     # Configurações de banco de dados
     DB_CONFIG = {
@@ -553,16 +620,6 @@ class AppConfig:
 
     # Esquemas de cores (para rich_cli.py)
     THEMES = {
-        Theme.PADRAO: {
-            "header": {"color": "#005F87", "border": "#003D5C"},
-            "body": {"primary": "#333333", "secondary": "#666666"},
-            "status": {
-                "success": "#4CAF50",
-                "warning": "#FFC107",
-                "error": "#F44336",
-                "info": "#2196F3",
-            },
-        },
         Theme.ESCURO: {
             "header": {"color": "#E0E0E0", "border": "#7A7A7A"},
             "body": {"primary": "#BDBDBD", "secondary": "#7A7A7A"},
@@ -573,15 +630,38 @@ class AppConfig:
                 "info": "#2196F3",
             },
         },
+        Theme.CLARO: {  # Changed from PADRAO to CLARO
+            "header": {"color": "#333333", "border": "#003D5C"},
+            "body": {"primary": "#333333", "secondary": "#666666"},
+            "status": {
+                "success": "#4CAF50",
+                "warning": "#FFC107",
+                "error": "#F44336",
+                "info": "#2196F3",
+            },
+        },
+        # Keep PADRAO as alias for CLARO if needed for backward compatibility
+        Theme.PADRAO: {
+            "header": {"color": "#005F87", "border": "#003D5C"},
+            "body": {"primary": "#333333", "secondary": "#666666"},
+            "status": {
+                "success": "#4CAF50",
+                "warning": "#FFC107",
+                "error": "#F44336",
+                "info": "#2196F3",
+            },
+        },
     }
 
     @classmethod
-    def load_theme(cls, theme_name: str = Theme.ESCURO) -> Dict[str, Any]:
+    def load_theme(cls, theme_name: str = Theme.ESCURO) -> Theme:
         """Carrega configurações de tema"""
         try:
-            return cls.THEMES[Theme(theme_name)]
+            if isinstance(theme_name, Theme):
+                return theme_name
+            return Theme(theme_name.lower())  # Handles case insensitivity
         except ValueError:
-            return cls.THEMES[Theme.ESCURO]
+            return Theme.ESCURO
 
     @classmethod
     def get_db_dsn(cls) -> str:
@@ -605,116 +685,184 @@ if __name__ == "__main__":
 ],
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 rich_cli = [
 
-# rich_cli.py version 3!!!!!!! integrating logger.py
+# rich_cli.py version 4
 
+import traceback
 from datetime import datetime
-from typing import Dict, List
-
+from typing import Dict, List, Optional
+from time import perf_counter
 from rich.console import Console
 from rich.text import Text
 from rich.panel import Panel
 from rich.table import Table
 from rich.align import Align
 from rich.prompt import Prompt
-from config import AppConfig
+from config import AppConfig, Theme  # Added Theme import from config
 from logger import JCELogger
 
 
 class JECCLI:
-    """Interface de usuário unificada para o Sistema JEC usando Rich"""
+    """Enhanced Rich CLI with comprehensive logging integration"""
 
     _instance = None
-    _initialized = False  # Define at class level to avoid Pylint warning
+    _initialized = False
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._initialized = False  # Initialize instance flag
+            cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
-        if self._initialized:  # Now this is safe to check
+        if self._initialized:
             return
 
         self.console = Console(width=80, highlight=False)
+        self.logger = JCELogger()
         self.theme = AppConfig.load_theme()
-
-        if self.theme not in ["dark", "light"]:
-            self.theme = "dark"
-
         self.user_context = None
         self.system_status = {
             "database": "offline",
             "auth": "inactive",
             "last_update": datetime.now().isoformat(),
         }
-        self._initialized = True  # Mark as initialized
-        self.logger = JCELogger()
+        self._initialized = True
+        self.logger.log_interface(
+            "CLI",
+            "initialized",
+            metadata={"theme": self.theme, "config_version": AppConfig.VERSION},
+        )
 
     def _apply_theme(self, element_type: str) -> Dict[str, str]:
-        """Aplica esquema de cores baseado no tema atual"""
-        themes = {
-            "dark": {
-                "header": {"color": "#E0E0E0", "border": "#7A7A7A"},
-                "body": {"primary": "#BDBDBD", "secondary": "#7A7A7A"},
-                "status": {
-                    "success": "#66BB6A",
-                    "warning": "#E6A23C",
-                    "error": "#D32F2F",
-                    "info": "#2196F3",
+        """Theme application with fallback"""
+        try:
+            return AppConfig.THEMES[self.theme][element_type]
+        except KeyError:
+            self.logger.log_interface(
+                "Theme",
+                "fallback_used",
+                level="warning",
+                metadata={
+                    "requested_element": element_type,
+                    "available_themes": list(AppConfig.THEMES.keys()),
                 },
-            },
-            "light": {
-                "header": {"color": "#333333", "border": "#AAAAAA"},
-                "body": {"primary": "#000000", "secondary": "#666666"},
-                "status": {
-                    "success": "#4CAF50",
-                    "warning": "#FFC107",
-                    "error": "#F44336",
-                    "info": "#2196F3",
+            )
+            return AppConfig.THEMES[Theme.ESCURO][element_type]
+
+    def display_header(self, title: str = "Sistema JEC") -> None:
+        """Render application header with logging"""
+        try:
+            start_time = perf_counter()
+            header_text = Text(
+                f"⚖️  {title}", style=f"bold {self._apply_theme('header')['color']}"
+            )
+
+            self.console.print(
+                Panel(
+                    Align.center(header_text),
+                    border_style=self._apply_theme("header")["border"],
+                    padding=(1, 2),
+                    title=f"v{AppConfig.VERSION}",
+                    title_align="right",
+                )
+            )
+
+            self.logger.log_interface(
+                "Header",
+                "displayed",
+                metadata={
+                    "title": title,
+                    "render_time": f"{perf_counter() - start_time:.3f}s",
                 },
-            },
-        }
-        return themes.get(self.theme, themes["dark"])[element_type]
-
-    def display_header(self, title: str = "Sistema JEC"):
-        """Renderiza o cabeçalho da aplicação"""
-        header_text = Text(
-            f"⚖️  {title}", style=f"bold {self._apply_theme('header')['color']}"
-        )
-        self.console.print(
-            Panel(
-                Align.center(header_text),
-                border_style=self._apply_theme("header")["border"],
-                padding=(1, 2),
-                title=f"v{AppConfig.VERSION}",
-                title_align="right",
             )
-        )
+        except Exception as e:
+            self._log_ui_error("header_render", e)
 
-    def display_main_menu(self, options: List[Dict[str, str]]):
-        """Exibe menu principal numerado"""
-        menu_table = Table(show_header=False, box=None, expand=True)
-        menu_table.add_column(
-            "Opção", style=self._apply_theme("body")["primary"], width=6
-        )
-        menu_table.add_column("Descrição", style=self._apply_theme("body")["secondary"])
-
-        for idx, option in enumerate(options, 1):
-            menu_table.add_row(
-                Text(f"{idx}", style="bold"), Text(option["description"])
+    def display_main_menu(self, options: List[Dict[str, str]]) -> None:
+        """Show numbered menu with full interaction logging"""
+        try:
+            start_time = perf_counter()
+            menu_table = Table(show_header=False, box=None, expand=True)
+            menu_table.add_column(
+                "Option", style=self._apply_theme("body")["primary"], width=6
+            )
+            menu_table.add_column(
+                "Description", style=self._apply_theme("body")["secondary"]
             )
 
-        self.console.print("\n")
-        self.console.print(
-            Panel(
-                menu_table,
-                title="[bold]Menu Principal[/]",
-                border_style=self._apply_theme("header")["border"],
+            for idx, option in enumerate(options, 1):
+                menu_table.add_row(
+                    Text(f"{idx}", style="bold"), Text(option["description"])
+                )
+
+            self.console.print("\n")
+            self.console.print(
+                Panel(
+                    menu_table,
+                    title="[bold]Main Menu[/]",
+                    border_style=self._apply_theme("header")["border"],
+                )
             )
-        )
+
+            self.logger.log_interface(
+                "Menu",
+                "displayed",
+                user_ctx=self.user_context,
+                metadata={
+                    "options_count": len(options),
+                    "render_time": f"{perf_counter() - start_time:.3f}s",
+                },
+            )
+        except Exception as e:
+            self._log_ui_error("menu_render", e)
 
     def display_status(self, message: str, level: str = "info"):
         """Exibe mensagens de status formatadas"""
@@ -725,59 +873,192 @@ class JECCLI:
         )
 
     def prompt_input(self, label: str, input_type: type = str) -> str:
-        """Solicita entrada do usuário com validação de tipo"""
-        while True:
+        """Get user input with type validation and logging"""
+        attempt = 0
+        max_attempts = 3
+
+        while attempt < max_attempts:
             try:
+                attempt += 1
                 value = Prompt.ask(f"[bold]{label}[/]", console=self.console)
-                return input_type(value)
-            except ValueError:
-                self.display_status(
-                    f"Entrada inválida. Esperado tipo {input_type.__name__}.", "warning"
+
+                self.logger.log_interface(
+                    "Input",
+                    "received",
+                    user_ctx=self.user_context,
+                    metadata={
+                        "label": label,
+                        "attempt": attempt,
+                        "raw_value": value,
+                        "expected_type": input_type.__name__,
+                    },
                 )
 
-    def display_data_table(self, data: List[Dict], title: str = "Resultados"):
-        """Exibe dados em formato tabular"""
-        table = Table(
-            title=f"[bold]{title}[/]",
-            box=None,
-            show_header=True,
-            header_style=f"bold {self._apply_theme('body')['primary']}",
-        )
+                converted = input_type(value)
 
-        if data:
-            for key in data[0].keys():
-                table.add_column(key.capitalize())
+                self.logger.log_interface(
+                    "Input",
+                    "validated",
+                    metadata={"converted_value": str(converted), "success": True},
+                )
 
-            for item in data:
-                table.add_row(*[str(v) for v in item.values()])
+                return converted
 
-            self.console.print(table)
-        else:
-            self.display_status("Nenhum dado encontrado.", "warning")
+            except ValueError:
+                self.display_status(
+                    f"Invalid input. Expected {input_type.__name__}.", "warning"
+                )
+                self.logger.log_interface(
+                    "Input",
+                    "validation_failed",
+                    level="warning",
+                    metadata={"attempt": attempt, "max_attempts": max_attempts},
+                )
 
-    def update_footer(self):
-        """Atualiza e exibe o rodapé dinâmico"""
-        user_email = (
-            self.user_context.get("email", "N/A")
-            if self.user_context and isinstance(self.user_context, dict)
-            else "Não autenticado"
-        )
+        raise ValueError(f"Failed after {max_attempts} attempts")
 
-        footer_elements = [
-            f"Usuário: {user_email}",
-            f"Status DB: {self.system_status.get('database', 'unknown')}",
-            f"Atualizado: {datetime.now().strftime('%H:%M:%S')}",
-        ]
-
-        footer_text = Text("   |   ".join(footer_elements), style="italic #7A7A7A")
-        self.console.print(
-            Panel(
-                Align.center(footer_text),
-                border_style=self._apply_theme("header")["border"],
-                padding=(0, 2),
-                expand=False,
+    def display_data_table(self, data: List[Dict], title: str = "Results") -> None:
+        """Render data table with comprehensive performance and context logging"""
+        try:
+            start_time = perf_counter()
+            table = Table(
+                title=f"[bold]{title}[/]",
+                box=None,
+                show_header=True,
+                header_style=f"bold {self._apply_theme('body')['primary']}",
             )
+
+            if data:
+                # Capture column metadata before rendering
+                columns = list(data[0].keys())
+                sample_data = {
+                    col: (
+                        str(data[0][col])[:100] + "..."
+                        if isinstance(data[0][col], str)
+                        and len(str(data[0][col])) > 100
+                        else data[0][col]
+                    )
+                    for col in columns[:3]
+                }  # Sample first 3 columns
+
+                for key in columns:
+                    table.add_column(key.capitalize())
+
+                # Process rows with truncation for large values
+                rendered_rows = 0
+                for item in data:
+                    row_values = []
+                    for v in item.values():
+                        if isinstance(v, str) and len(v) > 50:
+                            row_values.append(v[:50] + "...")
+                        else:
+                            row_values.append(str(v))
+                    table.add_row(*row_values)
+                    rendered_rows += 1
+
+                self.console.print(table)
+
+                self.logger.log_interface(
+                    "Table",
+                    "rendered",
+                    user_ctx=self.user_context,
+                    metadata={
+                        "title": title,
+                        "row_count": len(data),
+                        "rendered_rows": rendered_rows,
+                        "column_count": len(columns),
+                        "column_names": columns,
+                        "sample_data": sample_data,
+                        "render_time": f"{perf_counter() - start_time:.3f}s",
+                        "theme": self.theme.name,
+                        "terminal_size": f"{self.console.width}x{self.console.height}",
+                        "data_type": (
+                            type(data[0][columns[0]]).__name__ if columns else "unknown"
+                        ),
+                        "truncated": any(
+                            len(str(v)) > 50 for item in data for v in item.values()
+                        ),
+                    },
+                )
+            else:
+                self.display_status("No data found.", "warning")
+                self.logger.log_interface(
+                    "Table",
+                    "empty_data",
+                    level="warning",
+                    metadata={
+                        "title": title,
+                        "expected_columns": self._get_expected_columns_for_table(
+                            title
+                        ),  # Implement this method
+                        "context": (
+                            str(self.user_context) if self.user_context else "anonymous"
+                        ),
+                    },
+                )
+
+        except Exception as e:
+            error_meta = {
+                "last_successful_render": getattr(self, "_last_successful_table", None),
+                "data_sample": str(data[:1]) if data else "empty",
+                "table_config": {"title": title, "theme": self.theme.name},
+            }
+            self._log_ui_error("table_render", e, error_meta)
+
+    def _log_ui_error(
+        self, operation: str, error: Exception, additional_meta: Optional[Dict] = None
+    ) -> None:
+        """Standardized error logging for UI operations with optional metadata"""
+        error_meta = {
+            "operation": operation,
+            "error": str(error),
+            "type": type(error).__name__,
+            "stack": traceback.format_exc(),
+        }
+
+        if additional_meta:
+            error_meta.update(additional_meta)
+
+        self.logger.log_interface(
+            "CLI", "operation_failed", level="error", metadata=error_meta
         )
+        self.display_status(f"UI Error: {str(error)}", "error")
+
+    def update_footer(self) -> None:
+        """Dynamic footer with system status"""
+        try:
+            user_email = (
+                self.user_context.get("email", "N/A")
+                if self.user_context
+                else "Not authenticated"
+            )
+
+            footer_elements = [
+                f"User: {user_email}",
+                f"DB Status: {self.system_status.get('database', 'unknown')}",
+                f"Updated: {datetime.now().strftime('%H:%M:%S')}",
+            ]
+
+            footer_text = Text(" | ".join(footer_elements), style="italic #7A7A7A")
+            self.console.print(
+                Panel(
+                    Align.center(footer_text),
+                    border_style=self._apply_theme("header")["border"],
+                    padding=(0, 2),
+                    expand=False,
+                )
+            )
+
+            self.logger.log_interface(
+                "Footer",
+                "updated",
+                metadata={
+                    "user": user_email,
+                    "db_status": self.system_status.get("database"),
+                },
+            )
+        except Exception as e:
+            self._log_ui_error("footer_update", e)
 
     def clear_screen(self):
         """Limpa a tela do console"""
@@ -788,12 +1069,58 @@ class JECCLI:
 cli = JECCLI()
 
 
-
 ],
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 logger = [
 
-# logger.py - version 5 (Final Integration)
+# logger.py - version 5
+import json
 import logging
 from pathlib import Path
 from typing import Dict, Optional, Literal, Any, Union
@@ -815,19 +1142,42 @@ class JCELogger:
         self._valid_levels = {"debug", "info", "warning", "error"}
 
     def _create_interface_logger(self) -> logging.Logger:
-        """Special logger for UI events with enhanced formatting"""
+        """Specialized logger for UI events with structured JSON formatting"""
         logger = logging.getLogger("jec.interface")
         logger.handlers.clear()
 
         handler = logging.FileHandler(self.log_dir / "interface.log", encoding="utf-8")
-        handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s | %(levelname)-8s | UI:%(message)s | %(extra)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-        )
+
+        class UIFormatter(logging.Formatter):
+            """Custom formatter for Rich CLI events"""
+
+            def format(self, record):
+                # Base log entry
+                log_entry = {
+                    "timestamp": self.formatTime(record),
+                    "level": record.levelname,
+                    "component": getattr(record, "component", "unknown"),
+                    "event": getattr(record, "event", "unknown"),
+                    "user": getattr(record, "user_id", None),
+                    "session": getattr(record, "session_id", None),
+                    "metadata": getattr(record, "metadata", {}),
+                }
+
+                # Add execution context if available
+                if hasattr(record, "execution_context"):
+                    log_entry.update(
+                        {
+                            "render_time_ms": getattr(record, "render_time", 0),
+                            "ui_element": getattr(record, "ui_element", "generic"),
+                        }
+                    )
+
+                return json.dumps(log_entry, ensure_ascii=False)
+
+        handler.setFormatter(UIFormatter())
         logger.addHandler(handler)
         logger.setLevel(logging.DEBUG)
+
         return logger
 
     def _setup_logging_env(self):
@@ -881,26 +1231,36 @@ class JCELogger:
             f"{module}.{action}", extra={"metadata": metadata} if metadata else {}
         )
 
+    # Update JCELogger.log_interface() in logger.py
     def log_interface(
         self,
         component: str,
         event: str,
-        user_ctx: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        user_ctx: Optional[Dict] = None,
+        metadata: Optional[Dict] = None,
         level: LogLevel = "info",
     ) -> None:
-        """Enhanced UI event logging for rich_cli integration"""
+        """Enhanced logging with direct rich_cli context mapping"""
         log_method = getattr(self.loggers["interface"], self._safe_get_level(level))
 
-        # Prepare structured log data
-        log_data = {
+        # Standardized context format
+        record_attrs = {
             "component": component,
             "event": event,
-            **({"user": user_ctx} if user_ctx else {}),
-            **({"meta": metadata} if metadata else {}),
+            "user_id": user_ctx.get("email") if user_ctx else None,
+            "session_id": user_ctx.get("session_id") if user_ctx else None,
+            "metadata": metadata or {},
+            "ui_element": component,  # Auto-map component to UI element
         }
 
-        log_method(f"{component}.{event}", extra={"extra": log_data})
+        # Add timing if available in metadata
+        if metadata and "render_time" in metadata:
+            record_attrs["render_time_ms"] = (
+                float(metadata["render_time"].replace("s", "")) * 1000
+            )
+
+        log_method(event, extra=record_attrs)
+
 
 ]
 
