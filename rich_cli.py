@@ -1,5 +1,3 @@
-# rich_cli.py version 5 >>> integrating with main about to start!!!!!!!!!!!
-
 import traceback
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -10,7 +8,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.align import Align
 from rich.prompt import Prompt
-from config import AppConfig, Theme  # Added Theme import from config
+from config import AppConfig, Theme
 from logger import JCELogger
 
 
@@ -39,6 +37,7 @@ class JECCLI:
             "auth": "inactive",
             "last_update": datetime.now().isoformat(),
         }
+        self._current_context = {}  # Initialize context storage
         self._initialized = True
         self.logger.log_interface(
             "CLI",
@@ -189,9 +188,22 @@ class JECCLI:
 
         raise ValueError(f"Failed after {max_attempts} attempts")
 
-    def display_data_table(self, data: List[Dict], title: str = "Results") -> None:
-        """Render data table with comprehensive performance and context logging"""
+    def display_data_table(
+        self, data: List[Dict], title: str, metadata: Optional[Dict] = None
+    ) -> None:
+        """Display tabular data with optional metadata"""
         try:
+            # Ensure context exists
+            if not hasattr(self, "_current_context"):
+                self._current_context = {}
+
+            # Store metadata in context
+            if metadata:
+                self._current_context["metadata"] = metadata
+                self.logger.log_interface(
+                    "Table", "metadata_updated", metadata=metadata
+                )
+
             start_time = perf_counter()
             table = Table(
                 title=f"[bold]{title}[/]",
@@ -200,36 +212,28 @@ class JECCLI:
                 header_style=f"bold {self._apply_theme('body')['primary']}",
             )
 
-            if data:
-                # Capture column metadata before rendering
+            if data and len(data) > 0:
+                # Process columns
                 columns = list(data[0].keys())
-                sample_data = {
-                    col: (
-                        str(data[0][col])[:100] + "..."
-                        if isinstance(data[0][col], str)
-                        and len(str(data[0][col])) > 100
-                        else data[0][col]
-                    )
-                    for col in columns[:3]
-                }  # Sample first 3 columns
+                for col in columns:
+                    table.add_column(col.capitalize())
 
-                for key in columns:
-                    table.add_column(key.capitalize())
-
-                # Process rows with truncation for large values
+                # Process rows
                 rendered_rows = 0
                 for item in data:
                     row_values = []
-                    for v in item.values():
-                        if isinstance(v, str) and len(v) > 50:
-                            row_values.append(v[:50] + "...")
+                    for key in columns:
+                        value = item.get(key, "N/A")
+                        if isinstance(value, str) and len(value) > 50:
+                            row_values.append(value[:47] + "...")
                         else:
-                            row_values.append(str(v))
+                            row_values.append(str(value))
                     table.add_row(*row_values)
                     rendered_rows += 1
 
                 self.console.print(table)
 
+                # Log successful render
                 self.logger.log_interface(
                     "Table",
                     "rendered",
@@ -237,43 +241,29 @@ class JECCLI:
                     metadata={
                         "title": title,
                         "row_count": len(data),
-                        "rendered_rows": rendered_rows,
-                        "column_count": len(columns),
-                        "column_names": columns,
-                        "sample_data": sample_data,
+                        "columns": columns,
                         "render_time": f"{perf_counter() - start_time:.3f}s",
-                        "theme": self.theme.name,
-                        "terminal_size": f"{self.console.width}x{self.console.height}",
-                        "data_type": (
-                            type(data[0][columns[0]]).__name__ if columns else "unknown"
-                        ),
-                        "truncated": any(
-                            len(str(v)) > 50 for item in data for v in item.values()
-                        ),
+                        **self._current_context.get("metadata", {}),
                     },
                 )
             else:
-                self.display_status("No data found.", "warning")
+                self.display_status("No data available", "warning")
                 self.logger.log_interface(
                     "Table",
-                    "empty_data",
+                    "empty",
                     level="warning",
                     metadata={
                         "title": title,
-                        "expected_columns": self._get_expected_columns_for_table(
-                            title
-                        ),  # Implement this method
-                        "context": (
-                            str(self.user_context) if self.user_context else "anonymous"
-                        ),
+                        **self._current_context.get("metadata", {}),
                     },
                 )
 
         except Exception as e:
             error_meta = {
-                "last_successful_render": getattr(self, "_last_successful_table", None),
-                "data_sample": str(data[:1]) if data else "empty",
-                "table_config": {"title": title, "theme": self.theme.name},
+                "title": title,
+                "data_type": type(data).__name__,
+                "data_length": len(data) if data else 0,
+                **self._current_context.get("metadata", {}),
             }
             self._log_ui_error("table_render", e, error_meta)
 

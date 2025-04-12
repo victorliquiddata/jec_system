@@ -7,14 +7,15 @@ from auth import auth_manager
 from rich_cli import cli
 
 
-# FakeDB to simulate user lookup and password upgrade
+# FakeDB to simulate user lookup, password upgrade, and user listing
 class FakeDB:
     def __init__(self):
         self.updated = False
 
-    def execute_query(self, query, params=None, return_results=False):
-        # Simulate fetching user record
-        if query.strip().upper().startswith("SELECT * FROM USUARIOS"):
+    def execute_query(self, query, params=None, return_results=False, **kwargs):
+        q = query.strip().upper()
+        # Simulate fetching user record for login
+        if q.startswith("SELECT * FROM USUARIOS"):
             return [
                 {
                     "id": "test-id-123",
@@ -23,8 +24,14 @@ class FakeDB:
                     "tipo": "juiz",
                 }
             ]
+        # Simulate listing users
+        if q.startswith("SELECT ID, EMAIL, TIPO FROM USUARIOS"):
+            return [
+                {"id": "u1", "email": "user1@test.com", "tipo": "advogado"},
+                {"id": "u2", "email": "user2@test.com", "tipo": "juiz"},
+            ]
         # Simulate updating the password hash
-        if query.strip().upper().startswith("UPDATE USUARIOS SET SENHA"):
+        if q.startswith("UPDATE USUARIOS SET SENHA"):
             self.updated = True
             return 1
         return []
@@ -54,7 +61,15 @@ def patch_environment(monkeypatch):
         cli, "display_status", lambda msg, status: statuses.append((msg, status))
     )
 
-    # Provide sequence of inputs: login choice, email, password, then exit choice
+    # Capture data table output
+    data_tables = []
+    monkeypatch.setattr(
+        cli,
+        "display_data_table",
+        lambda data, title=None: data_tables.append((data, title)),
+    )
+
+    # Default prompt sequence (login then exit)
     inputs = iter([1, "dddddd.ddddd@gggg.cccc", "Ulala1234!", 7])
 
     def fake_prompt(prompt, input_type=str, password=False):
@@ -62,20 +77,17 @@ def patch_environment(monkeypatch):
 
     monkeypatch.setattr(cli, "prompt_input", fake_prompt)
 
-    # Expose captured statuses and fake_db to tests
-    return {"statuses": statuses, "fake_db": fake_db}
+    return {"statuses": statuses, "fake_db": fake_db, "data_tables": data_tables}
 
 
 def test_main_login_success(patch_environment):
     env = patch_environment
-    # Run main loop (will login then exit)
     main.main()
 
     # Check that login success was shown
     assert any(
         "Login successful" in msg for msg, st in env["statuses"]
     ), "Expected a 'Login successful' status message"
-
     # Verify that the legacy password was upgraded
     assert env["fake_db"].updated, "Expected legacy password to be upgraded in DB"
 

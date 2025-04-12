@@ -1,23 +1,14 @@
-#!/usr/bin/env python3
-"""
-main.py — Entry point for Sistema JEC CLI >> UPDATE HERE BEFORE ANY CHANGES
-
-Features:
-- Guest menu (Login / Exit)
-- Authenticated menu (CRUD usuários, trocar senha, logout, exit)
-- Session timeout, login lockout
-- Role-based access control for user management
-- Audit logging for critical actions
-"""
-
 import time
 from datetime import datetime, timedelta
-
+import traceback
 from database import get_db_instance
 from auth import auth_manager
 from rich_cli import cli
 from config import AppConfig
 from logger import JCELogger
+
+from typing import Dict, List, Optional
+from logging_context import LoggingContext  # Add this import
 
 
 # Security / session settings
@@ -32,13 +23,22 @@ def main():
 
     login_attempts: dict[str, tuple[int, float]] = {}
     lockouts: dict[str, float] = {}
-
     last_activity = datetime.now()
+    current_correlation_id: Optional[str] = None  # Track active correlation ID
 
     try:
         while True:
             cli.clear_screen()
             cli.display_header("Sistema JEC")
+
+            # Generate new correlation ID for guest actions
+            if not auth_manager.get_current_user():
+                current_correlation_id = (
+                    AppConfig.generate_correlation_id()
+                    if AppConfig.LOGGING["enable_correlation"]
+                    else None
+                )
+                LoggingContext.set_correlation_id(current_correlation_id)
 
             user = auth_manager.get_current_user()
             now_ts = time.time()
@@ -60,11 +60,19 @@ def main():
                         continue
 
                     password = cli.prompt_input("Password", password=True)
-                    success = auth_manager.login(email, password)
+
+                    # Pass correlation ID to auth system
+                    success = auth_manager.login(
+                        email, password, correlation_id=current_correlation_id
+                    )
 
                     if success:
                         user = auth_manager.get_current_user()
-                        cli.user_context = user
+                        # Store correlation ID in user context
+                        cli.user_context = {
+                            **user,
+                            "correlation_id": current_correlation_id,
+                        }
                         last_activity = datetime.now()
                         cli.display_status("Login successful", "success")
                         time.sleep(1)
@@ -92,9 +100,13 @@ def main():
 
             # --- Authenticated flow ---
             else:
+                # Get correlation ID from user context
+                current_correlation_id = cli.user_context.get("correlation_id")
+
+                # Session timeout check with correlation context
                 if datetime.now() - last_activity > timedelta(seconds=SESSION_TIMEOUT):
                     cli.display_status("Session expired due to inactivity", "warning")
-                    auth_manager.logout()
+                    auth_manager.logout(correlation_id=current_correlation_id)
                     cli.user_context = None
                     continue
 
@@ -115,21 +127,75 @@ def main():
                 # 1. List users
                 if choice == 1:
                     try:
-                        users = db.execute_query(
-                            "SELECT id, email, tipo FROM usuarios", return_results=True
+                        # Execute query with proper error handling
+                        result = db.execute_query(
+                            "SELECT id, email, tipo FROM usuarios ORDER BY email",
+                            return_results=True,
+                            correlation_id=current_correlation_id,
+                            query_name="list_users",
                         )
-                        cli.display_data_table(users, title="Usuários")
-                        cli.prompt_input("\nPress Enter to return to the menu...")
+
+                        if not result:
+                            cli.display_status("No users found", "info")
+                            logger.log_negocio(
+                                "user",
+                                "list_empty",
+                                {"correlation_id": current_correlation_id},
+                                level="info",
+                            )
+                        else:
+                            # Transform results for display
+                            users = [
+                                {
+                                    "ID": str(user["id"]),
+                                    "Email": user["email"],
+                                    "Tipo": user["tipo"],
+                                }
+                                for user in result
+                            ]
+
+                            cli.display_data_table(
+                                users,
+                                title="Usuários",
+                                metadata={
+                                    "correlation_id": current_correlation_id,
+                                    "count": len(users),
+                                },
+                            )
+
+                        cli.prompt_input("\nPress Enter to continue...")
+
                     except Exception as e:
-                        cli.display_status(f"Error fetching users: {str(e)}", "error")
+                        error_msg = f"Database error: {str(e)}"
+                        cli.display_status(error_msg, "error")
+                        logger.log_negocio(
+                            "user",
+                            "list_failed",
+                            {
+                                "error": str(e),
+                                "correlation_id": current_correlation_id,
+                                "traceback": traceback.format_exc(),
+                            },
+                            level="error",
+                        )
+                        time.sleep(2)  # Give user time to read error
 
                 # 2. Create user
                 elif choice == 2:
                     if perfil not in ("servidor", "juiz"):
                         cli.display_status("Permission denied", "error")
+                        logger.log_negocio(
+                            "auth",
+                            "permission_denied",
+                            {
+                                "action": "create_user",
+                                "user_perfil": perfil,
+                                "correlation_id": current_correlation_id,
+                            },
+                            level="warning",
+                        )
                     else:
-                        # Collect all required fields
-                        # Validate CPF format (basic check)
+                        # Collect user data with validation
                         while True:
                             new_cpf = cli.prompt_input("CPF (11 digits)")
                             if new_cpf.isdigit() and len(new_cpf) == 11:
@@ -139,7 +205,6 @@ def main():
                         new_nome = cli.prompt_input("Full name")
                         new_email = cli.prompt_input("Email")
 
-                        # Password validation
                         while True:
                             new_password = cli.prompt_input("Password", password=True)
                             valid, reason = auth_manager.validate_password_complexity(
@@ -154,7 +219,6 @@ def main():
                             "Profile type (advogado/servidor/juiz/etc)"
                         )
 
-                        # Handle optional phone number
                         cli.display_status("Phone number (press Enter to skip)", "info")
                         new_telefone = cli.prompt_input("Phone number")
                         new_telefone = new_telefone if new_telefone else None
@@ -173,6 +237,8 @@ def main():
                                     new_perfil,
                                     new_telefone,
                                 ),
+                                correlation_id=current_correlation_id,
+                                query_name="create_user",
                             )
                             cli.display_status("User created successfully", "success")
                             logger.log_negocio(
@@ -181,8 +247,8 @@ def main():
                                 {
                                     "email": new_email,
                                     "perfil": new_perfil,
-                                    "cpf": new_cpf[:3]
-                                    + "***",  # Log partial CPF for privacy
+                                    "cpf": new_cpf[:3] + "***",
+                                    "correlation_id": current_correlation_id,
                                 },
                                 "info",
                             )
@@ -190,18 +256,38 @@ def main():
                             cli.display_status(
                                 f"Error creating user: {str(e)}", "error"
                             )
+                            logger.log_negocio(
+                                "auth",
+                                "user_create_failed",
+                                {
+                                    "error": str(e),
+                                    "correlation_id": current_correlation_id,
+                                },
+                                level="error",
+                            )
 
                 # 3. Update user
                 elif choice == 3:
                     if perfil not in ("servidor", "juiz"):
                         cli.display_status("Permission denied", "error")
+                        logger.log_negocio(
+                            "auth",
+                            "permission_denied",
+                            {
+                                "action": "update_user",
+                                "user_perfil": perfil,
+                                "correlation_id": current_correlation_id,
+                            },
+                            level="warning",
+                        )
                     else:
-                        # Change prompt to accept string instead of int for UUID
                         user_id = cli.prompt_input("User ID to update")
                         exists = db.execute_query(
                             "SELECT id FROM usuarios WHERE id=%s::uuid",
                             (user_id,),
                             return_results=True,
+                            correlation_id=current_correlation_id,
+                            query_name="verify_user_exists",
                         )
                         if not exists:
                             cli.display_status("User not found", "warning")
@@ -212,6 +298,8 @@ def main():
                                 db.execute_query(
                                     "UPDATE usuarios SET email=%s, tipo=%s WHERE id=%s::uuid",
                                     (new_email, new_perfil, user_id),
+                                    correlation_id=current_correlation_id,
+                                    query_name="update_user",
                                 )
                                 cli.display_status("User updated", "success")
                                 logger.log_negocio(
@@ -221,6 +309,7 @@ def main():
                                         "user_id": user_id,
                                         "email": new_email,
                                         "perfil": new_perfil,
+                                        "correlation_id": current_correlation_id,
                                     },
                                     "info",
                                 )
@@ -228,18 +317,29 @@ def main():
                                 cli.display_status(
                                     f"Error updating user: {str(e)}", "error"
                                 )
+                                logger.log_negocio(
+                                    "auth",
+                                    "user_update_failed",
+                                    {
+                                        "user_id": user_id,
+                                        "error": str(e),
+                                        "correlation_id": current_correlation_id,
+                                    },
+                                    level="error",
+                                )
 
                 # 4. Delete user
                 elif choice == 4:
                     if perfil not in ("servidor", "juiz"):
                         cli.display_status("Permission denied", "error")
                     else:
-                        # Remove int type constraint since we're using UUIDs
                         user_id = cli.prompt_input("User ID to delete (UUID)")
                         exists = db.execute_query(
-                            "SELECT id FROM usuarios WHERE id=%s::uuid",  # Add UUID cast
+                            "SELECT id FROM usuarios WHERE id=%s::uuid",
                             (user_id,),
                             return_results=True,
+                            correlation_id=current_correlation_id,
+                            query_name="verify_user_exists",
                         )
                         if not exists:
                             cli.display_status("User not found", "warning")
@@ -249,35 +349,60 @@ def main():
                             )
                             if confirm.upper() == "YES":
                                 try:
-                                    # Delete related audit_log entries first to avoid FK constraint
                                     db.execute_query(
                                         "DELETE FROM audit_log WHERE user_id = %s::uuid",
                                         (user_id,),
+                                        correlation_id=current_correlation_id,
+                                        query_name="delete_audit_logs",
                                     )
-                                    # Then delete the user
                                     db.execute_query(
                                         "DELETE FROM usuarios WHERE id = %s::uuid",
                                         (user_id,),
+                                        correlation_id=current_correlation_id,
+                                        query_name="delete_user",
                                     )
                                     cli.display_status("User deleted", "success")
                                     logger.log_negocio(
                                         "auth",
                                         "user_delete",
-                                        {"user_id": user_id},
+                                        {
+                                            "user_id": user_id,
+                                            "correlation_id": current_correlation_id,
+                                        },
                                         "info",
                                     )
                                 except Exception as e:
                                     cli.display_status(
                                         f"Error deleting user: {str(e)}", "error"
                                     )
+                                    logger.log_negocio(
+                                        "auth",
+                                        "user_delete_failed",
+                                        {
+                                            "user_id": user_id,
+                                            "error": str(e),
+                                            "correlation_id": current_correlation_id,
+                                        },
+                                        level="error",
+                                    )
                             else:
                                 cli.display_status("Deletion cancelled", "info")
 
-                # 5. Change password (self-service)
+                # 5. Change password
                 elif choice == 5:
                     old = cli.prompt_input("Current password", password=True)
                     if not auth_manager.verify_password(user["senha"], old):
                         cli.display_status("Incorrect current password", "error")
+                        logger.log_negocio(
+                            "auth",
+                            "password_change_failed",
+                            {
+                                "reason": "incorrect_current_password",
+                                "user_id": user["id"],
+                                "correlation_id": current_correlation_id,
+                            },
+                            level="warning",
+                        )
                     else:
                         while True:
                             new_pw = cli.prompt_input("New password", password=True)
@@ -293,12 +418,17 @@ def main():
                             db.execute_query(
                                 "UPDATE usuarios SET senha=%s WHERE id=%s",
                                 (hashed, user["id"]),
+                                correlation_id=current_correlation_id,
+                                query_name="change_password",
                             )
                             cli.display_status("Password changed", "success")
                             logger.log_negocio(
                                 "auth",
                                 "password_change",
-                                {"user_id": user["id"]},
+                                {
+                                    "user_id": user["id"],
+                                    "correlation_id": current_correlation_id,
+                                },
                                 "info",
                             )
                         except Exception as e:
@@ -308,8 +438,9 @@ def main():
 
                 # 6. Logout
                 elif choice == 6:
-                    auth_manager.logout()
+                    auth_manager.logout(correlation_id=current_correlation_id)
                     cli.user_context = None
+                    current_correlation_id = None
                     cli.display_status("Logged out", "info")
                     time.sleep(1)
 
@@ -320,6 +451,13 @@ def main():
 
                 else:
                     cli.display_status("Invalid option", "warning")
+                    logger.log_interface(
+                        "menu",
+                        "invalid_option",
+                        user_ctx=cli.user_context,
+                        metadata={"choice": choice},
+                        level="warning",
+                    )
 
                 time.sleep(1)
 

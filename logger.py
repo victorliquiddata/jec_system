@@ -1,8 +1,11 @@
-# logger.py - version 5
 import json
 import logging
 from pathlib import Path
 from typing import Dict, Optional, Literal, Any
+from config import AppConfig
+
+
+from logging.handlers import TimedRotatingFileHandler
 
 LogLevel = Literal["info", "warning", "error", "debug"]
 
@@ -11,7 +14,12 @@ class JCELogger:
     """Enhanced centralized logger for JEC system with rich_cli integration"""
 
     def __init__(self):
-        self.log_dir = Path("logs")
+        config = AppConfig.get_log_config()
+        self.log_dir = Path(config["dir"])
+        self.rotation = config["rotation"]
+        self.retention_days = config["retention"]
+        self.correlation_enabled = config["enable_correlation"]
+
         self._setup_logging_env()
         self.loggers = {
             "conexoes": self._create_logger("conexoes"),
@@ -20,12 +28,31 @@ class JCELogger:
         }
         self._valid_levels = {"debug", "info", "warning", "error"}
 
+    def _create_logger(self, name: str) -> logging.Logger:
+        logger = logging.getLogger(f"jec.{name}")
+        logger.handlers.clear()
+
+        handler = TimedRotatingFileHandler(
+            filename=self.log_dir / f"{name}.log",
+            when=self.rotation,
+            backupCount=self.retention_days,
+            encoding="utf-8",
+        )
+
     def _create_interface_logger(self) -> logging.Logger:
         """Specialized logger for UI events with structured JSON formatting"""
         logger = logging.getLogger("jec.interface")
         logger.handlers.clear()
 
-        handler = logging.FileHandler(self.log_dir / "interface.log", encoding="utf-8")
+        # Write interface logs to the root log directory, no nested ui folder
+        interface_log_path = self.log_dir / "interface.log"
+
+        handler = TimedRotatingFileHandler(
+            filename=interface_log_path,
+            when=self.rotation,
+            backupCount=self.retention_days,
+            encoding="utf-8",
+        )
 
         class UIFormatter(logging.Formatter):
             """Custom formatter for Rich CLI events"""
@@ -60,8 +87,13 @@ class JCELogger:
         return logger
 
     def _setup_logging_env(self):
-        """Ensure log directory exists"""
-        self.log_dir.mkdir(exist_ok=True, parents=True)
+        """Create log directory from config"""
+        try:
+            self.log_dir.mkdir(exist_ok=True, parents=True)
+            (self.log_dir / "archive").mkdir(exist_ok=True)  # For rotated logs
+        except PermissionError as pe:
+            logging.error(f"Log directory permission error: {str(pe)}")
+            raise
 
     def _create_logger(self, name: str) -> logging.Logger:
         """Standard logger creator"""
@@ -89,8 +121,13 @@ class JCELogger:
         message: str,
         level: LogLevel = "info",
         metadata: Optional[Dict[str, Any]] = None,
+        correlation_id: Optional[str] = None,
     ) -> None:
         """Log database connections and operations"""
+
+        metadata = metadata or {}
+        if self.correlation_enabled and correlation_id:
+            metadata["correlation_id"] = correlation_id
         log_method = getattr(self.loggers["conexoes"], self._safe_get_level(level))
         log_method(
             f"[{event_type}] {message}",

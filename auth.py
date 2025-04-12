@@ -1,19 +1,8 @@
-# auth.py >> version 2
-"""
-auth.py — [insert brief description] >> UPDATE HERE BEFORE ANY CHANGES
-
-Features:
-- [insert feat 1]
-- [insert feat 2]
-- [insert more feats if needed]
-"""
-
-
 import re
 
 import secrets
 import hashlib
-from typing import Optional, Dict
+from typing import Dict, List, Optional
 
 import psycopg2  # or your actual DB library
 
@@ -32,21 +21,36 @@ class AuthManager:
         # Log initialization of auth manager
         self.logger.log_negocio("auth", "manager_initialized", level="info")
 
-    def login(self, email: str, senha: str) -> bool:
-        """Authenticate user and establish session, upgrading legacy passwords if needed."""
+    def login(
+        self, email: str, password: str, correlation_id: Optional[str] = None
+    ) -> bool:
+        """Authenticate user and establish session with correlation support"""
         try:
-            self.logger.log_negocio("auth", "login_attempt", {"email": email}, "info")
+            self.logger.log_negocio(
+                "auth",
+                "login_attempt",
+                {"email": email, "correlation_id": correlation_id},
+                "info",
+            )
 
             db = get_db_instance()
             user = db.execute_query(
-                "SELECT * FROM usuarios WHERE email = %s", (email,), return_results=True
+                "SELECT * FROM usuarios WHERE email = %s",
+                (email,),
+                return_results=True,
+                correlation_id=correlation_id,
+                query_name="user_login",
             )
 
             if not user:
                 self.logger.log_negocio(
                     "auth",
                     "login_failed",
-                    {"email": email, "reason": "user_not_found"},
+                    {
+                        "email": email,
+                        "reason": "user_not_found",
+                        "correlation_id": correlation_id,
+                    },
                     "warning",
                 )
                 self.current_user = None
@@ -60,7 +64,9 @@ class AuthManager:
             is_legacy = not stored_password.startswith(SUPPORTED_HASH_PREFIXES)
 
             # Validate password (legacy or modern)
-            password_valid = self.verify_password(stored_password, senha)
+            password_valid = self.verify_password(
+                stored_password, password
+            )  # Fixed variable name
 
             if not password_valid:
                 self.logger.log_negocio(
@@ -70,6 +76,7 @@ class AuthManager:
                         "email": email,
                         "user_id": user_data["id"],
                         "reason": "invalid_password",
+                        "correlation_id": correlation_id,
                     },
                     "warning",
                 )
@@ -78,15 +85,21 @@ class AuthManager:
 
             # Upgrade legacy password hash
             if is_legacy:
-                new_hash = self.hash_password(senha)
+                new_hash = self.hash_password(password)  # Fixed variable name
                 db.execute_query(
                     "UPDATE usuarios SET senha = %s WHERE id = %s",
                     (new_hash, user_data["id"]),
+                    correlation_id=correlation_id,
+                    query_name="password_upgrade",
                 )
                 self.logger.log_negocio(
                     "auth",
                     "password_upgraded",
-                    {"user_id": user_data["id"], "email": email},
+                    {
+                        "user_id": user_data["id"],
+                        "email": email,
+                        "correlation_id": correlation_id,
+                    },
                     "info",
                 )
 
@@ -98,6 +111,7 @@ class AuthManager:
                     "user_id": user_data["id"],
                     "email": email,
                     "profile": user_data.get("perfil", "unknown"),
+                    "correlation_id": correlation_id,
                 },
                 "info",
             )
@@ -107,18 +121,29 @@ class AuthManager:
             self.logger.log_negocio(
                 "auth",
                 "login_error",
-                {"email": email, "error": str(e), "error_type": type(e).__name__},
+                {
+                    "email": email,
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "correlation_id": correlation_id,
+                },
                 "error",
             )
             self.current_user = None
             return False
 
-    def logout(self):
-        """Terminate current session"""
+    def logout(self, correlation_id: Optional[str] = None) -> None:
+        """Terminate current session with correlation support"""
         if self.current_user:
-            # Use your custom logger here
             self.logger.log_negocio(
-                "auth", "logout", {"user_email": self.current_user["email"]}, "info"
+                "auth",
+                "logout",
+                {
+                    "user_email": self.current_user["email"],
+                    "user_id": self.current_user.get("id"),
+                    "correlation_id": correlation_id,
+                },
+                "info",
             )
             self.current_user = None
 

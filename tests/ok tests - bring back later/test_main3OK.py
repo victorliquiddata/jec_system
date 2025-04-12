@@ -96,8 +96,8 @@ def test_login_lockout(monkeypatch):
     ]
     setup_dummy_cli(monkeypatch, dummy)
 
-    # Force all login attempts to fail
-    monkeypatch.setattr(auth_manager, "login", lambda e, p: False)
+    # Force all login attempts to fail, with updated lambda to accept correlation_id
+    monkeypatch.setattr(auth_manager, "login", lambda e, p, **kwargs: False)
 
     main()
 

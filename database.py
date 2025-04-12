@@ -1,22 +1,6 @@
-##database.py
-
-"""
-database.py — [insert brief description] >> UPDATE HERE BEFORE ANY CHANGES
-Database Manager Module
-
-Handles all PostgreSQL database operations with connection pooling and comprehensive logging.
-Uses JCELogger for detailed audit trails and operational monitoring.
-
-Features:
-- Thread-safe connection pooling
-- Automatic reconnection logic
-- Query execution tracking
-- Detailed error logging
-- Performance monitoring
-- [insert more feats if needed]
-"""
-
 import os
+import secrets
+import hashlib
 from typing import Optional, List, Dict, Any, Union
 from psycopg2 import pool, OperationalError, Error, DatabaseError
 from psycopg2.extensions import connection  # Removed unused 'cursor'
@@ -24,6 +8,7 @@ from dotenv import load_dotenv
 from time import perf_counter  # Add this import
 from datetime import datetime
 from logger import JCELogger
+from config import AppConfig
 
 # Initialize environment variables
 load_dotenv()
@@ -99,6 +84,7 @@ class DatabaseManager:
                         "max": max_connections,
                         "host": os.getenv("DB_HOST"),
                         "schema": os.getenv("DB_SCHEMA", "jec"),
+                        "log_config": AppConfig.get_log_config(),  # Add config snapshot
                     },
                 )
 
@@ -161,48 +147,182 @@ class DatabaseManager:
         )
 
     def execute_query(
-        self, query: str, params: Optional[tuple] = None, return_results: bool = False
+        self,
+        query: str,
+        params: Optional[tuple] = None,
+        return_results: bool = False,
+        correlation_id: Optional[str] = None,
+        query_name: Optional[str] = None,
     ) -> Optional[Union[List[Dict[str, Any]], int]]:
-        """Executa uma query com logging automático."""
+        """
+        Executes a database query with full observability integration.
+
+        Args:
+            query: SQL query string
+            params: Query parameters
+            return_results: Whether to return results
+            correlation_id: Request tracing ID
+            query_name: Optional descriptive name for metrics
+
+        Returns:
+            Query results or affected row count
+
+        Raises:
+            DatabaseError: On query execution failure
+        """
         conn = None
-        start_time = perf_counter()  # More precise timing
+        start_time = perf_counter()
+        query_id = f"qry-{secrets.token_hex(4)}"  # Unique query identifier
         self.metrics["total_queries"] += 1
 
+        # Build metadata payload
+        log_metadata = {
+            "query_id": query_id,
+            "query_name": query_name or "adhoc",
+            "correlation_id": correlation_id,
+            "params_hash": (
+                hashlib.md5(str(params).encode()).hexdigest()[:8] if params else None
+            ),
+        }
+
         try:
-            self.logger.log_conexao("QUERY_START", f"Executando: {query[:50]}...")
+            self.logger.log_conexao(
+                "QUERY_START",
+                f"Executing: {query[:100]}...",
+                metadata=log_metadata,
+                correlation_id=correlation_id,
+            )
+
             conn = self._get_connection()
-
             with conn.cursor() as cur:
+                # Execute with timing
                 cur.execute(query, params)
-                execution_time = perf_counter() - start_time  # Precise measurement
+                execution_time = perf_counter() - start_time
 
+                # Log the query execution time (added for robustness)
                 self._log_query_execution(query, params, execution_time)
 
+                # Update metrics
+                self._update_query_metrics(
+                    query=query,
+                    params=params,
+                    execution_time=execution_time,
+                    metadata=log_metadata,
+                )
+
+                # Handle results
                 if return_results:
-                    if cur.description:
-                        columns = [desc[0] for desc in cur.description]
-                        results = [dict(zip(columns, row)) for row in cur.fetchall()]
-                        self.logger.log_conexao("QUERY_SUCCESS", "Consulta concluída")
-                        return results
-                    return []
-                else:
-                    conn.commit()
+                    results = self._process_query_results(cur)
                     self.logger.log_conexao(
-                        "UPDATE_SUCCESS", f"Linhas afetadas: {cur.rowcount}"
+                        "QUERY_SUCCESS",
+                        f"Returned {len(results)} rows",
+                        metadata={
+                            **log_metadata,
+                            "row_count": len(results),
+                            "execution_time": execution_time,
+                        },
+                        correlation_id=correlation_id,
                     )
-                    return cur.rowcount
+                    return results
 
-            self.metrics["last_success"] = datetime.now()
+                # Handle updates
+                conn.commit()
+                self.logger.log_conexao(
+                    "UPDATE_SUCCESS",
+                    f"Rows affected: {cur.rowcount}",
+                    metadata={
+                        **log_metadata,
+                        "row_count": cur.rowcount,
+                        "execution_time": execution_time,
+                    },
+                    correlation_id=correlation_id,
+                )
+                return cur.rowcount
 
-        except Error as e:
+        except OperationalError as e:
+            # Handle OperationalError specifically and re-raise it
             self.metrics["failed_queries"] += 1
-            self.logger.log_conexao("QUERY_FAILED", str(e), level="error")
+            self.logger.log_conexao(
+                "QUERY_FAILED",
+                str(e),
+                level="error",
+                metadata={
+                    **log_metadata,
+                    "error_type": type(e).__name__,
+                    "execution_time": perf_counter() - start_time,
+                },
+                correlation_id=correlation_id,
+            )
             if conn:
                 conn.rollback()
-            raise
+            raise e  # Re-raise the OperationalError so it can be properly handled in the tests
+
+        except Error as e:
+            # Catch all other database errors and log them
+            self.metrics["failed_queries"] += 1
+            self.logger.log_conexao(
+                "QUERY_FAILED",
+                str(e),
+                level="error",
+                metadata={
+                    **log_metadata,
+                    "error_type": type(e).__name__,
+                    "execution_time": perf_counter() - start_time,
+                },
+                correlation_id=correlation_id,
+            )
+            if conn:
+                conn.rollback()
+            raise DatabaseError(f"Query failed [ID:{query_id}] - {str(e)}") from e
+
         finally:
             if conn:
-                self._connection_pool.putconn(conn)
+                try:
+                    self._connection_pool.putconn(conn)
+                    self.logger.log_conexao(
+                        "CONN_RELEASED",
+                        f"Connection returned to pool (Query ID: {query_id})",
+                        metadata=log_metadata,
+                        correlation_id=correlation_id,
+                        level="debug",
+                    )
+                except Exception as pool_error:
+                    self.logger.log_conexao(
+                        "POOL_ERROR",
+                        f"Failed returning connection: {str(pool_error)}",
+                        level="critical",
+                        metadata=log_metadata,
+                        correlation_id=correlation_id,
+                    )
+
+    # Helper Methods
+    def _update_query_metrics(
+        self, query: str, params: tuple, execution_time: float, metadata: dict
+    ):
+        """Updates metrics and logs query execution"""
+        self.metrics.setdefault("query_times", []).append(execution_time)
+        self.metrics["last_success"] = datetime.now()
+
+        # Slow query logging
+        if execution_time > 1.0:  # 1 second threshold
+            self.logger.log_conexao(
+                "SLOW_QUERY",
+                f"Query took {execution_time:.2f}s",
+                level="warning",
+                metadata={
+                    **metadata,
+                    "execution_time": execution_time,
+                    "query_sample": query[:200],
+                },
+            )
+
+    def _process_query_results(self, cursor) -> List[Dict[str, Any]]:
+        """Transforms cursor results into dictionaries"""
+        if not cursor.description:
+            return []
+
+        columns = [desc[0] for desc in cursor.description]
+        return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
     def close_all_connections(self):
         """Close all connections with logging"""

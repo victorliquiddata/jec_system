@@ -1,13 +1,3 @@
-# config.py
-"""
-config.py — [insert brief description] >> UPDATE HERE BEFORE ANY CHANGES
-
-Features:
-- [insert feat 1]
-- [insert feat 2]
-- [insert more feats if needed]
-"""
-
 import os
 import logging
 from dotenv import load_dotenv
@@ -96,6 +86,25 @@ class AppConfig:
         },
     }
 
+    LOGGING = {
+        "dir": os.getenv("LOG_DIR", "logs"),
+        "rotation": os.getenv("LOG_ROTATION", "midnight").lower(),
+        "retention": int(os.getenv("LOG_RETENTION", 30)),
+        "enable_correlation": os.getenv("LOG_CORRELATION", "true").lower() == "true",
+    }
+
+    # Add validation
+    valid_rotations = ["s", "m", "h", "d", "midnight", "w0", "w1"]
+    if LOGGING["rotation"] not in valid_rotations:
+        raise ValueError(
+            f"Invalid LOG_ROTATION: {LOGGING['rotation']}. Valid values: {valid_rotations}"
+        )
+
+    # Add to existing class
+    @classmethod
+    def get_log_config(cls) -> dict:
+        return cls.LOGGING
+
     @classmethod
     def load_theme(cls, theme_name: str = Theme.ESCURO) -> Theme:
         """Carrega configurações de tema"""
@@ -118,8 +127,8 @@ class AppConfig:
             f"options='-c search_path={cls.DB_CONFIG['schema']}'"
         )
 
+    @staticmethod
+    def generate_correlation_id() -> str:
+        import uuid
 
-# Teste de configuração (executa apenas quando rodado diretamente)
-if __name__ == "__main__":
-    print(f"Configuração do tema escuro: {AppConfig.load_theme()}")
-    print(f"DSN do banco de dados: {AppConfig.get_db_dsn()}")
+        return f"corr-{uuid.uuid4().hex[:16]}"
