@@ -1,4 +1,5 @@
-# validation.py
+# db_mgmt\services\validation.py
+
 
 import re
 from typing import Optional
@@ -27,3 +28,13 @@ class DBMgmtValidator:
         """Block dangerous operations in preview mode"""
         blocked_keywords = {"insert", "update", "delete", "drop", "alter", "grant"}
         return not any(keyword in query.lower() for keyword in blocked_keywords)
+
+    @staticmethod
+    def validate_preview_params(table: str, page: int, page_size: int) -> bool:
+        return all(
+            [
+                DBMgmtValidator.validate_table_name(table),
+                1 <= page <= 1000,
+                1 <= page_size <= 100,
+            ]
+        )

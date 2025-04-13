@@ -1,4 +1,4 @@
-# table_structure.py
+# db_mgmt\table_structure.py
 
 
 class TableStructureService:

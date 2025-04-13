@@ -130,6 +130,18 @@ DB_SCHEMA=jec
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 ## Testes
 
 ### Metodologia
@@ -206,6 +218,26 @@ pie
 
 ### Integração com Git
 Commits por módulo testado
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Especificações Técnicas
 

@@ -201,3 +201,11 @@ class JCELogger:
             },
             level="error",
         )
+
+    def log_data_access(self, action: str, metadata: dict):
+        self.log_negocio(
+            "data_access",
+            action,
+            metadata={**metadata, "access_type": "preview", "sensitive": False},
+            level="info",
+        )

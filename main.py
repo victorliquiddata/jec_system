@@ -14,6 +14,9 @@ from logger import JCELogger
 from typing import Dict, List, Optional
 from logging_context import LoggingContext  # Add this import
 
+# Add to existing imports
+from db_mgmt.data_preview import DataPreviewService
+from db_mgmt.services.validation import DBMgmtValidator
 
 # Security / session settings
 MAX_LOGIN_ATTEMPTS = 3
@@ -715,6 +718,68 @@ def handle_database_management(db, logger, correlation_id, user):
                 )
 
             cli.prompt_input("\nPress Enter to continue...")
+
+        # Add to sub_choice handling
+        elif sub_choice == 2:  # Preview Table Data
+            try:
+                table_name = cli.prompt_input("Enter table name")
+                if not DBMgmtValidator.validate_table_name(table_name):
+                    cli.display_status("Invalid table name", "error")
+                    time.sleep(1)
+                    continue
+
+                preview_service = DataPreviewService(db)
+                total_rows = preview_service.get_row_count(table_name, correlation_id)
+
+                if total_rows == 0:
+                    cli.display_status("Table is empty", "info")
+                    continue
+
+                # Pagination control
+                page_size = cli.prompt_input("Rows per page (10-100)", int, default=20)
+                page_size = DBMgmtValidator.sanitize_limit(page_size)
+                total_pages = (total_rows + page_size - 1) // page_size
+
+                current_page = 1
+                while True:
+                    offset = (current_page - 1) * page_size
+                    data = preview_service.preview_data(
+                        table_name, page_size, offset, correlation_id
+                    )
+
+                    cli.display_data_table(
+                        data,
+                        title=f"{table_name} (Page {current_page}/{total_pages})",
+                        metadata={
+                            "total_rows": total_rows,
+                            "correlation_id": correlation_id,
+                        },
+                    )
+
+                    nav_choice = cli.prompt_input(
+                        "[N]ext/[P]revious/[B]ack", options=["n", "p", "b"]
+                    )
+
+                    if nav_choice == "n" and current_page < total_pages:
+                        current_page += 1
+                    elif nav_choice == "p" and current_page > 1:
+                        current_page -= 1
+                    else:
+                        break
+
+            except Exception as e:
+                cli.display_status(f"Preview error: {str(e)}", "error")
+                logger.log_negocio(
+                    "database_mgmt",
+                    "data_preview_failed",
+                    {
+                        "table": table_name,
+                        "error": str(e),
+                        "correlation_id": correlation_id,
+                        "traceback": traceback.format_exc(),
+                    },
+                    level="error",
+                )
 
         if sub_choice == 9:  # Back to main menu
             break

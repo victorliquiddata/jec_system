@@ -155,7 +155,7 @@ class DatabaseManager:
         return_results: bool = False,
         correlation_id: Optional[str] = None,
         query_name: Optional[str] = None,
-    ) -> Optional[Union[List[Dict[str, Any]], int]]:
+    ) -> Union[List[Dict[str, Any]], int]:
         """
         Executes a database query with full observability integration.
 
@@ -323,8 +323,16 @@ class DatabaseManager:
         if not cursor.description:
             return []
 
-        columns = [desc[0] for desc in cursor.description]
-        return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        try:
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        except Exception as e:
+            self.logger.log_conexao(
+                "RESULT_PROCESSING_ERROR",
+                f"Failed to process results: {str(e)}",
+                level="error",
+            )
+            return []
 
     def close_all_connections(self):
         """Close all connections with logging"""

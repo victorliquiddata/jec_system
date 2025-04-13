@@ -2,7 +2,7 @@
 
 import traceback
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from time import perf_counter
 from rich.console import Console
 from rich.text import Text
@@ -148,22 +148,47 @@ class JECCLI:
         self.console.print(message, style=style, end="\r", highlight=False)
 
     def prompt_input(
-        self, label: str, input_type: type = str, password: bool = False
-    ) -> str:
-        """Get user input with type validation and logging"""
-        attempt = 0
-        max_attempts = 3
+        self,
+        label: str,
+        input_type: type = str,
+        password: bool = False,
+        default: Optional[str] = None,
+        options: Optional[List[str]] = None,
+        max_attempts: int = 3,
+    ) -> Union[str, int, float]:
+        """Enhanced input prompt with validation
 
+        Args:
+            label: Display prompt text
+            input_type: Expected type (str/int/float)
+            password: Mask input if True
+            default: Default value if user enters empty string
+            options: List of allowed values (case-insensitive)
+            max_attempts: Maximum validation attempts
+
+        Returns:
+            Converted value of requested type
+
+        Raises:
+            ValueError: After max_attempts failures
+        """
+        attempt = 0
         while attempt < max_attempts:
             try:
                 attempt += 1
-                if password:
-                    value = Prompt.ask(
-                        f"[bold]{label}[/]", console=self.console, password=True
-                    )
-                else:
-                    value = Prompt.ask(f"[bold]{label}[/]", console=self.console)
+                # Get input with optional default
+                prompt_text = f"[bold]{label}[/]"
+                if default:
+                    prompt_text += f" [dim](default: {default})[/]"
 
+                value = Prompt.ask(
+                    prompt_text,
+                    console=self.console,
+                    password=password,
+                    default=default,
+                )
+
+                # Log raw input
                 self.logger.log_interface(
                     "Input",
                     "received",
@@ -176,25 +201,39 @@ class JECCLI:
                     },
                 )
 
+                # Convert type
                 converted = input_type(value)
 
+                # Validate against options if provided
+                if options:
+                    if str(converted).lower() not in [opt.lower() for opt in options]:
+                        raise ValueError(f"Must be one of: {', '.join(options)}")
+
+                # Log successful validation
                 self.logger.log_interface(
                     "Input",
                     "validated",
-                    metadata={"converted_value": str(converted), "success": True},
+                    metadata={
+                        "converted_value": str(converted),
+                        "success": True,
+                        "options": options if options else None,
+                    },
                 )
 
                 return converted
 
-            except ValueError:
-                self.display_status(
-                    f"Invalid input. Expected {input_type.__name__}.", "warning"
-                )
+            except ValueError as e:
+                error_msg = str(e) if options else f"Expected {input_type.__name__}"
+                self.display_status(f"Invalid input: {error_msg}", "warning")
                 self.logger.log_interface(
                     "Input",
                     "validation_failed",
                     level="warning",
-                    metadata={"attempt": attempt, "max_attempts": max_attempts},
+                    metadata={
+                        "attempt": attempt,
+                        "max_attempts": max_attempts,
+                        "error": str(e),
+                    },
                 )
 
         raise ValueError(f"Failed after {max_attempts} attempts")
