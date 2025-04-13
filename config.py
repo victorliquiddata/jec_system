@@ -40,6 +40,7 @@ class AppConfig:
         "hashing_algorithm": "pbkdf2:sha256",
         "iterations": 600000,
         "session_timeout": 1800,  # 30 minutos em segundos
+        "session_refresh_interval": 300,  # 5 minutos
         "password_rules": {
             "min_length": 8,
             "require_upper": True,

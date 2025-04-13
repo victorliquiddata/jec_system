@@ -143,6 +143,10 @@ class JECCLI:
             style=self._apply_theme("body")["primary"],
         )
 
+    def display_progress(self, message: str, style: str = "dim"):
+        """Special method for progress updates that need carriage return"""
+        self.console.print(message, style=style, end="\r", highlight=False)
+
     def prompt_input(
         self, label: str, input_type: type = str, password: bool = False
     ) -> str:

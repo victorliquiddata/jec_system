@@ -2,6 +2,7 @@
 
 import re
 import time
+from datetime import datetime
 import traceback
 import secrets
 import hashlib
@@ -176,6 +177,8 @@ class AuthManager:
                 },
                 "info",
             )
+            # Atualiza última atividade após login
+            self.update_last_activity()  # <--- ONLY THIS LINE NEEDS TO BE ADDED
             return True
 
         except (psycopg2.DatabaseError, ValueError, AttributeError, IndexError) as e:
@@ -388,7 +391,9 @@ class AuthManager:
         return True, ""
 
     def get_current_user(self) -> Optional[Dict]:
-        """Get currently authenticated user"""
+        """Get currently authenticated user with auto-validation"""
+        if self.current_user and self.check_session_expiry():
+            return None
         return self.current_user
 
     def check_permission(self, permission_name: str) -> bool:
@@ -426,6 +431,52 @@ class AuthManager:
                 "error",
             )
             return False
+
+    def update_last_activity(self):
+        """Atualiza o timestamp da última atividade"""
+        if self.current_user:
+            try:
+                db = get_db_instance()
+                db.execute_query(
+                    "UPDATE usuarios SET ultima_atividade = CURRENT_TIMESTAMP WHERE id = %s",
+                    (self.current_user["id"],),
+                    query_name="update_last_activity",
+                )
+                # Atualiza localmente também
+                self.current_user["ultima_atividade"] = datetime.now().timestamp()
+
+            except Exception as e:
+                self.logger.log_negocio(
+                    "auth", "activity_update_failed", {"error": str(e)}, "error"
+                )
+
+    def check_session_expiry(self):
+        """Verifica expiração por inatividade e faz logout automaticamente"""
+        if not self.current_user:
+            return True
+
+        try:
+            db = get_db_instance()
+            user_data = db.execute_query(
+                "SELECT ultima_atividade FROM usuarios WHERE id = %s",
+                (self.current_user["id"],),
+                return_results=True,
+            )[0]
+
+            last_active = user_data["ultima_atividade"]
+            elapsed = datetime.now() - last_active
+
+            if elapsed.total_seconds() > AppConfig.AUTH["session_timeout"]:
+                self.logout()  # Novo: Faz logout automático
+                return True
+            return False
+
+        except Exception as e:
+            self.logger.log_negocio(
+                "auth", "session_check_failed", {"error": str(e)}, "error"
+            )
+            self.logout()  # Novo: Limpeza preventiva
+            return True
 
 
 # Singleton instance
