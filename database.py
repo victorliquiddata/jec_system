@@ -1,3 +1,5 @@
+# database.py
+
 import os
 import secrets
 import hashlib

@@ -1,3 +1,5 @@
+# rich_cli.py
+
 import traceback
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -127,6 +129,11 @@ class JECCLI:
             )
         except Exception as e:
             self._log_ui_error("menu_render", e)
+
+    def display_submenu(self, title: str, options: List[Dict[str, str]]):
+        """Display a nested menu with back option"""
+        self.display_header(title)
+        self.display_main_menu(options)
 
     def display_status(self, message: str, level: str = "info"):
         """Exibe mensagens de status formatadas"""

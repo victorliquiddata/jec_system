@@ -15,7 +15,7 @@ O Sistema JEC é uma aplicação CLI desenvolvida em Python com interface Rich, 
 - **v0.5**: Teste geral de todos os módulos ✓
 - **v0.6**: Implementação do main.py ✓
 - **v0.7**: TESTE GERAL DE INTEGRACAO ✓
-- **v0.8+**: Implementação do gerenciamento completo de usuários, documentos e processos *A INICIAR AGORA*
+- **v0.8+**: Implementação E TESTES do gerenciamento completo de usuários, documentos e processos *em processo*
 
 ## Informações de Desenvolvimento
 

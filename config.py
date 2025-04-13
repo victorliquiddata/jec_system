@@ -1,3 +1,5 @@
+# config.py
+
 import os
 import logging
 from dotenv import load_dotenv
@@ -44,6 +46,17 @@ class AppConfig:
             "require_lower": True,
             "require_digit": True,
             "require_special": True,
+        },  # Added closing brace and comma
+        "permissions": {
+            "database_management": ["servidor", "juiz"],
+            "user_management": ["servidor", "juiz"],
+            "case_management": ["servidor", "juiz", "advogado"],
+            "user_listing": ["servidor", "juiz"],
+        },
+        "database_permissions": {
+            "metadata_view": ["servidor", "juiz", "advogado"],
+            "data_export": ["servidor"],
+            "query_execution": ["servidor", "juiz"],  # Add juiz here
         },
     }
 

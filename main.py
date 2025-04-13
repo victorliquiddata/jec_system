@@ -1,6 +1,10 @@
+# main.py
+
 import time
 from datetime import datetime, timedelta
 import traceback
+import json
+import re
 from database import get_db_instance
 from auth import auth_manager
 from rich_cli import cli
@@ -110,12 +114,14 @@ def main():
                     cli.user_context = None
                     continue
 
+                # In the authenticated flow section (else block):
                 options = [
                     {"description": "List users"},
                     {"description": "Create user"},
                     {"description": "Update user"},
                     {"description": "Delete user"},
                     {"description": "Change password"},
+                    {"description": "Database Management"},  # New option
                     {"description": "Logout"},
                     {"description": "Exit"},
                 ]
@@ -181,8 +187,8 @@ def main():
                         time.sleep(2)  # Give user time to read error
 
                 # 2. Create user
-                elif choice == 2:
-                    if perfil not in ("servidor", "juiz"):
+                elif choice == 2:  # Create user
+                    if not auth_manager.check_permission("user_management"):
                         cli.display_status("Permission denied", "error")
                         logger.log_negocio(
                             "auth",
@@ -194,81 +200,194 @@ def main():
                             },
                             level="warning",
                         )
-                    else:
-                        # Collect user data with validation
-                        while True:
-                            new_cpf = cli.prompt_input("CPF (11 digits)")
-                            if new_cpf.isdigit() and len(new_cpf) == 11:
+                        continue
+
+                    # Enhanced profile selection
+                    profile_options = [
+                        {
+                            "id": 1,
+                            "code": "juiz",
+                            "name": "Juiz",
+                            "description": "Full system access including user management",
+                        },
+                        {
+                            "id": 2,
+                            "code": "servidor",
+                            "name": "Servidor",
+                            "description": "Manage cases and documents",
+                        },
+                        {
+                            "id": 3,
+                            "code": "advogado",
+                            "name": "Advogado",
+                            "description": "Submit and track cases",
+                        },
+                        {
+                            "id": 4,
+                            "code": "parte",
+                            "name": "Parte",
+                            "description": "View case status",
+                        },
+                    ]
+
+                    cli.display_data_table(
+                        [
+                            {
+                                "#": opt["id"],
+                                "Profile": opt["name"],
+                                "Access Level": opt["description"],
+                            }
+                            for opt in profile_options
+                        ],
+                        title="Available User Profiles",
+                    )
+
+                    # Collect user data with validation
+                    while True:
+                        new_cpf = cli.prompt_input("CPF (11 digits, numbers only)")
+                        if new_cpf.isdigit() and len(new_cpf) == 11:
+                            exists = db.execute_query(
+                                "SELECT 1 FROM usuarios WHERE cpf = %s",
+                                (new_cpf,),
+                                return_results=True,
+                                correlation_id=current_correlation_id,
+                                query_name="check_cpf_exists",
+                            )
+                            if not exists:
                                 break
+                            cli.display_status("CPF already registered", "warning")
+                        else:
                             cli.display_status("CPF must be 11 digits", "warning")
 
-                        new_nome = cli.prompt_input("Full name")
+                    new_nome = cli.prompt_input("Full name")
+
+                    while True:
                         new_email = cli.prompt_input("Email")
+                        if "@" in new_email and "." in new_email.split("@")[-1]:
+                            break
+                        cli.display_status("Invalid email format", "warning")
 
-                        while True:
-                            new_password = cli.prompt_input("Password", password=True)
-                            valid, reason = auth_manager.validate_password_complexity(
-                                new_password
-                            )
-                            if not valid:
-                                cli.display_status(reason, "warning")
-                            else:
-                                break
-
-                        new_perfil = cli.prompt_input(
-                            "Profile type (advogado/servidor/juiz/etc)"
+                    while True:
+                        new_password = cli.prompt_input("Password", password=True)
+                        valid, reason = auth_manager.validate_password_complexity(
+                            new_password
+                        )
+                        if valid:
+                            break
+                        cli.display_status(
+                            f"Password requirements: {reason}", "warning"
                         )
 
-                        cli.display_status("Phone number (press Enter to skip)", "info")
-                        new_telefone = cli.prompt_input("Phone number")
-                        new_telefone = new_telefone if new_telefone else None
+                    # Profile selection with validation
+                    while True:
+                        profile_choice = cli.prompt_input(
+                            "Select profile number (1-4)", int
+                        )
+                        selected_profile = next(
+                            (p for p in profile_options if p["id"] == profile_choice),
+                            None,
+                        )
 
-                        hashed = auth_manager.hash_password(new_password)
-                        try:
-                            db.execute_query(
-                                """INSERT INTO usuarios 
-                                (cpf, nome_completo, email, senha, tipo, telefone) 
-                                VALUES (%s, %s, %s, %s, %s, %s)""",
-                                (
-                                    new_cpf,
-                                    new_nome,
-                                    new_email,
-                                    hashed,
-                                    new_perfil,
-                                    new_telefone,
-                                ),
-                                correlation_id=current_correlation_id,
-                                query_name="create_user",
-                            )
-                            cli.display_status("User created successfully", "success")
-                            logger.log_negocio(
-                                "auth",
-                                "user_create",
-                                {
-                                    "email": new_email,
-                                    "perfil": new_perfil,
-                                    "cpf": new_cpf[:3] + "***",
-                                    "correlation_id": current_correlation_id,
-                                },
+                        if selected_profile:
+                            new_perfil = selected_profile["code"]
+                            cli.display_status(
+                                f"Selected: {selected_profile['name']} - {selected_profile['description']}",
                                 "info",
                             )
-                        except Exception as e:
+                            break
+                        cli.display_status("Invalid profile selection", "warning")
+
+                    # Profile-specific validation (without storage)
+                    if new_perfil == "advogado":
+                        while True:
+                            oab = cli.prompt_input(
+                                "OAB Number (format: XX/YYYYYY) [validation only]"
+                            )
+                            if re.match(r"^\w{2}/\d{6}$", oab):
+                                break
                             cli.display_status(
-                                f"Error creating user: {str(e)}", "error"
+                                "Invalid OAB format (use XX/YYYYYY)", "warning"
                             )
-                            logger.log_negocio(
-                                "auth",
-                                "user_create_failed",
-                                {
-                                    "error": str(e),
-                                    "correlation_id": current_correlation_id,
+                    elif new_perfil == "parte":
+                        while True:
+                            parte_type = cli.prompt_input(
+                                "Party type (autor/réu/testemunha) [validation only]"
+                            )
+                            if parte_type.lower() in {"autor", "réu", "testemunha"}:
+                                break
+                            cli.display_status("Invalid party type", "warning")
+
+                    # Phone number handling
+                    cli.display_status(
+                        "Phone number (optional, format: XX XXXX-XXXX)", "info"
+                    )
+                    while True:
+                        new_telefone = cli.prompt_input(
+                            "Phone number (press Enter to skip)"
+                        )
+                        if not new_telefone:
+                            new_telefone = None
+                            break
+                        if re.match(r"^(\d{2} \d{4,5}-\d{4})$", new_telefone):
+                            break
+                        cli.display_status(
+                            "Invalid phone format (use XX XXXX-XXXX or XX XXXXX-XXXX)",
+                            "warning",
+                        )
+
+                    # Create user with existing schema
+                    try:
+                        db.execute_query(
+                            """INSERT INTO usuarios 
+                            (cpf, nome_completo, email, senha, tipo, telefone) 
+                            VALUES (%s, %s, %s, %s, %s, %s)""",
+                            (
+                                new_cpf,
+                                new_nome,
+                                new_email,
+                                auth_manager.hash_password(new_password),
+                                new_perfil,
+                                new_telefone,
+                            ),
+                            correlation_id=current_correlation_id,
+                            query_name="create_user",
+                        )
+
+                        cli.display_status(
+                            f"{selected_profile['name']} created successfully",
+                            "success",
+                        )
+                        logger.log_negocio(
+                            "auth",
+                            "user_create",
+                            {
+                                "email": new_email,
+                                "perfil": new_perfil,
+                                "cpf_masked": new_cpf[:3] + "***",
+                                "correlation_id": current_correlation_id,
+                            },
+                            level="info",
+                        )
+                    except Exception as e:
+                        cli.display_status(f"Error creating user: {str(e)}", "error")
+                        logger.log_negocio(
+                            "auth",
+                            "user_create_failed",
+                            {
+                                "error": str(e),
+                                "correlation_id": current_correlation_id,
+                                "attempted_data": {
+                                    "email": new_email,
+                                    "perfil": new_perfil,
                                 },
-                                level="error",
-                            )
+                            },
+                            level="error",
+                        )
+                        cli.prompt_input("\nPress Enter to continue...")
 
                 # 3. Update user
                 elif choice == 3:
-                    if perfil not in ("servidor", "juiz"):
+                    if not auth_manager.check_permission("user_management"):
                         cli.display_status("Permission denied", "error")
                         logger.log_negocio(
                             "auth",
@@ -330,7 +449,7 @@ def main():
 
                 # 4. Delete user
                 elif choice == 4:
-                    if perfil not in ("servidor", "juiz"):
+                    if not auth_manager.check_permission("user_management"):
                         cli.display_status("Permission denied", "error")
                     else:
                         user_id = cli.prompt_input("User ID to delete (UUID)")
@@ -436,16 +555,36 @@ def main():
                                 f"Error changing password: {str(e)}", "error"
                             )
 
-                # 6. Logout
-                elif choice == 6:
+                elif choice == 6:  # Database Management
+                    if not auth_manager.check_permission("database_management"):
+                        cli.display_status("Permission denied", "error")
+                        logger.log_negocio(
+                            "auth",
+                            "permission_denied",
+                            {
+                                "action": "database_management",
+                                "user_perfil": perfil,
+                                "correlation_id": current_correlation_id,
+                            },
+                            level="warning",
+                        )
+                        time.sleep(1)
+                        continue
+                    else:
+                        handle_database_management(
+                            db, logger, current_correlation_id, user
+                        )
+
+                # 7. Logout
+                elif choice == 7:
                     auth_manager.logout(correlation_id=current_correlation_id)
                     cli.user_context = None
                     current_correlation_id = None
                     cli.display_status("Logged out", "info")
                     time.sleep(1)
 
-                # 7. Exit
-                elif choice == 7:
+                # 8. Exit
+                elif choice == 8:
                     cli.display_status("Exiting...", "info")
                     break
 
@@ -467,6 +606,132 @@ def main():
     except KeyboardInterrupt:
         cli.clear_screen()
         cli.display_status("Interrupted. Goodbye!", "warning")
+
+
+def handle_database_management(db, logger, correlation_id, user):
+    """Handles database management submenu"""
+    from db_mgmt.table_structure import TableStructureService
+    from db_mgmt.services.validation import DBMgmtValidator
+
+    service = TableStructureService(db)
+
+    while True:
+        cli.clear_screen()
+        cli.display_header("Database Management")
+
+        sub_options = [
+            {"description": "View Table Structure"},
+            {"description": "Preview Table Data"},
+            {"description": "Run Custom Query"},
+            {"description": "Export Table"},
+            {"description": "View Database Info"},
+            {"description": "Manage Users"},
+            {"description": "Manage Legal Cases"},
+            {"description": "Track Case Progress"},
+            {"description": "Back to Main Menu"},
+        ]
+
+        cli.display_main_menu(sub_options)
+        sub_choice = cli.prompt_input("Choose an option", int)
+
+        if sub_choice == 1:  # View Table Structure
+            try:
+                table_name = cli.prompt_input("Enter table name")
+
+                if not DBMgmtValidator.validate_table_name(table_name):
+                    cli.display_status("Invalid table name", "error")
+                    time.sleep(1)
+                    continue
+
+                # Get and display structure
+                columns = service.get_table_columns(table_name, correlation_id)
+                constraints = service.get_constraints(table_name, correlation_id)
+
+                # Add type checking
+                if not isinstance(columns, list) or not columns:
+                    cli.display_status("Failed to retrieve table structure", "error")
+                    logger.log_negocio(  # Changed from log_db_error to log_negocio to match your actual logger
+                        module="database_mgmt",
+                        action="get_structure_failed",
+                        metadata={  # Changed to use metadata parameter
+                            "table": table_name,
+                            "error": "Expected list, got " + str(type(columns)),
+                            "error_type": "TypeError",
+                            "user_id": user.get("id") if user else None,
+                            "correlation_id": correlation_id,  # Use the parameter
+                        },
+                        level="error",
+                    )
+                    continue
+
+                if not columns:
+                    cli.display_status(
+                        "No columns found or table doesn't exist", "warning"
+                    )
+                else:
+                    # Transform for display
+                    display_data = [
+                        {
+                            "Column": col["column_name"],
+                            "Type": col["data_type"],
+                            "Nullable": col["is_nullable"],
+                            "Default": str(col["column_default"] or ""),
+                        }
+                        for col in columns
+                    ]
+
+                    cli.display_data_table(
+                        display_data,
+                        title=f"Structure of {table_name}",
+                        metadata={
+                            "constraints": constraints,
+                            "correlation_id": correlation_id,
+                        },
+                    )
+
+                logger.log_negocio(
+                    "database_mgmt",
+                    "structure_viewed",
+                    {
+                        "table": table_name,
+                        "user": user["id"],
+                        "columns": len(columns),
+                        "correlation_id": correlation_id,
+                    },
+                    level="info",
+                )
+
+            except Exception as e:
+                cli.display_status(f"Error: {str(e)}", "error")
+                logger.log_negocio(
+                    "database_mgmt",
+                    "structure_view_failed",
+                    {
+                        "error": str(e),
+                        "traceback": traceback.format_exc(),
+                        "correlation_id": correlation_id,
+                    },
+                    level="error",
+                )
+
+            cli.prompt_input("\nPress Enter to continue...")
+
+        if sub_choice == 9:  # Back to main menu
+            break
+
+        time.sleep(1.5)
+
+        # Log the access attempt
+        logger.log_negocio(
+            "database_mgmt",
+            "submenu_access",
+            {
+                "option": sub_options[sub_choice - 1]["description"],
+                "user_id": user["id"],
+                "correlation_id": correlation_id,
+            },
+            level="info",
+        )
 
 
 if __name__ == "__main__":

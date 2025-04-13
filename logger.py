@@ -1,3 +1,5 @@
+# logger.py
+
 import json
 import logging
 from pathlib import Path
@@ -176,3 +178,26 @@ class JCELogger:
             )
 
         log_method(event, extra=record_attrs)
+
+    def log_db_error(
+        self,
+        module: str,
+        action: str,
+        table: str,
+        error: Exception,
+        user_id: Optional[str] = None,
+        correlation_id: Optional[str] = None,
+    ):
+        """Standardized database error logging"""
+        self.log_negocio(
+            module=module,
+            action=action,
+            metadata={
+                "table": table,
+                "error": str(error),
+                "error_type": type(error).__name__,
+                "user_id": user_id,
+                "correlation_id": correlation_id,
+            },
+            level="error",
+        )
